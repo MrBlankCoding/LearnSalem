@@ -1,0 +1,10 @@
+flask
+flask-socketio 
+redis 
+Werkzeug
+requests
+Pillow
+Flask-WTF
+pymongo
+firebase-admin
+python-dotenv
