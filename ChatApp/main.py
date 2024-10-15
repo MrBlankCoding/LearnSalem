@@ -24,8 +24,10 @@ import imghdr
 
 load_dotenv()
 
-# Get the JSON string from the environment variable
 firebase_cred_json = os.getenv('FIREBASE_ADMIN_SDK')
+
+# Ensure the private key has correct newlines by replacing "\\n" with "\n"
+firebase_cred_json = firebase_cred_json.replace("\\n", "\n")
 
 # Parse the JSON string into a Python dictionary
 cred_dict = json.loads(firebase_cred_json)
