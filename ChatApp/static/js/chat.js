@@ -200,6 +200,14 @@ const createMessageActions = (isCurrentUser, messageId, msg) =>
       // Add event listeners for reactions and message actions
       const reactionButton = element.querySelector('.reaction-button');
       const reactionMenu = element.querySelector('.reaction-menu');
+
+      const readReceiptElement = document.createElement('div');
+      readReceiptElement.className = 'read-receipt text-xs text-gray-500 mt-1';
+      element.appendChild(readReceiptElement);
+
+      if (element.getAttribute('data-sender') !== currentUser) {
+        markMessagesAsRead([element.getAttribute('data-message-id')]);
+      }
       
       if (reactionButton && reactionMenu) {
         reactionButton.addEventListener('click', (e) => {
@@ -453,6 +461,60 @@ socketio.on("message", (data) => {
     replyBtn.addEventListener('click', () => startReply(data.id, data.message));
   }
 });
+
+const markMessagesAsRead = (messageIds) => {
+  socketio.emit("mark_read", { messageIds: messageIds });
+};
+
+const updateReadReceipts = (updatedMessages) => {
+  updatedMessages.forEach(msg => {
+    const messageElement = document.querySelector(`[data-message-id="${msg.id}"]`);
+    if (messageElement) {
+      const readReceiptElement = messageElement.querySelector('.read-receipt');
+      if (readReceiptElement) {
+        const readByCount = msg.read_by.length;
+        readReceiptElement.textContent = readByCount > 1 ? `Read by ${readByCount}` : (readByCount === 1 ? 'Read' : '');
+      }
+    }
+  });
+};
+
+socketio.on("update_read_receipts", (data) => {
+  updateReadReceipts(data.updatedMessages);
+});
+
+const markVisibleMessagesAsRead = () => {
+  const visibleMessages = Array.from(document.querySelectorAll('.message'))
+    .filter(el => {
+      const rect = el.getBoundingClientRect();
+      return rect.top >= 0 && rect.bottom <= window.innerHeight;
+    })
+    .filter(el => el.getAttribute('data-sender') !== currentUser)
+    .map(el => el.getAttribute('data-message-id'));
+
+  if (visibleMessages.length > 0) {
+    markMessagesAsRead(visibleMessages);
+  }
+};
+
+// Debounce function
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+// Mark messages as read when scrolling
+messages.addEventListener('scroll', debounce(markVisibleMessagesAsRead, 300));
+
+// Mark messages as read when the window gains focus
+window.addEventListener('focus', markVisibleMessagesAsRead);
 
 socketio.on("chat_history", (data) => {
   messages.scrollTop = messages.scrollHeight;

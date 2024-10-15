@@ -983,15 +983,17 @@ def message(data):
     room = session.get("room")
     room_data = rooms_collection.find_one({"_id": room})
     if not room or not room_data:
-        return 
+        return
 
     content = {
         "id": str(ObjectId()),
         "name": session.get("name"),
         "message": data["data"],
         "reply_to": data.get("replyTo"),
+        "read_by": [session.get("name")],  # Mark as read by sender
+        "timestamp": datetime.utcnow()
     }
-    
+
     if "image" in data:
         try:
             image_data = base64.b64decode(data["image"].split(",")[1])
@@ -1002,9 +1004,9 @@ def message(data):
             content["image"] = url_for('uploaded_file', filename=filename, _external=True)
         except Exception as e:
             content["message"] = "Failed to upload image"
-    
+
     send(content, to=room)
-    
+
     # Update room messages in MongoDB
     rooms_collection.update_one(
         {"_id": room},
@@ -1014,12 +1016,50 @@ def message(data):
     # Send push notification to all users in the room except the sender
     sender_username = session.get('username')
     room_users = rooms_collection.find_one({"_id": room}, {"users": 1})["users"]
-    
     for username in room_users:
         if username != sender_username:
             user_data = users_collection.find_one({"username": username}, {"fcm_token": 1})
             if user_data and "fcm_token" in user_data:
                 send_push_notification(user_data["fcm_token"], content)
+
+@socketio.on("mark_read")
+def mark_read(data):
+    room = session.get("room")
+    username = session.get("name")
+    if not room:
+        return
+
+    # Update all unread messages as read by this user
+    result = rooms_collection.update_many(
+        {
+            "_id": room,
+            "messages": {
+                "$elemMatch": {
+                    "id": {"$in": data["messageIds"]},
+                    "read_by": {"$ne": username}
+                }
+            }
+        },
+        {"$addToSet": {"messages.$[elem].read_by": username}},
+        array_filters=[{"elem.id": {"$in": data["messageIds"]}}]
+    )
+
+    if result.modified_count:
+        # Fetch updated messages
+        updated_messages = rooms_collection.find_one(
+            {"_id": room},
+            {"messages": {"$elemMatch": {"id": {"$in": data["messageIds"]}}}},
+            {"messages.id": 1, "messages.read_by": 1}
+        )
+
+        # Emit updated read receipts to all users in the room
+        if updated_messages and "messages" in updated_messages:
+            socketio.emit("update_read_receipts", {
+                "updatedMessages": [
+                    {"id": msg["id"], "read_by": msg["read_by"]}
+                    for msg in updated_messages["messages"]
+                ]
+            }, room=room)
 
 @socketio.on("edit_message")
 def edit_message(data):
