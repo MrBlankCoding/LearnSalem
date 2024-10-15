@@ -8,3 +8,4 @@ Flask-WTF
 pymongo
 firebase-admin
 python-dotenv
+flask-cors
