@@ -59,7 +59,6 @@ rooms_collection.create_index([("users", 1)])
 rooms_collection.create_index([("messages.id", 1)])
 users_collection.create_index([("fcm_token", 1)])
 
-# Initialize SocketIO
 socketio = SocketIO(app)
 
 
@@ -74,10 +73,32 @@ def send_push_notification(token, content):
     
     try:
         response = messaging.send(message)
-        print('Successfully sent message:', response)
     except Exception as e:
         print('Error sending message:', e)
+        
+@app.route('/firebase-messaging-sw.js')
+def serve_sw():
+    root_dir = os.path.abspath(os.getcwd())  # Gets the current working directory (project root)
+    return send_from_directory(root_dir, 'firebase-messaging-sw.js', mimetype='application/javascript')
     
+    
+@app.route('/register-fcm-token', methods=['POST'])
+def register_fcm_token():
+    data = request.json
+    username = session.get('username')
+    fcm_token = data.get('token')
+    
+    if username and fcm_token:
+        # Update the user's FCM token in MongoDB
+        users_collection.update_one(
+            {"username": username},
+            {"$set": {"fcm_token": fcm_token}},
+            upsert=True
+        )
+        return jsonify({"message": "FCM token registered successfully"}), 200
+    return jsonify({"error": "Invalid data"}), 400
+
+
 def save_profile_photo(file, username):
     """Helper function to save and process profile photos"""
     if not file:
@@ -143,7 +164,7 @@ def redirect_if_logged_in(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "username" in session:
-            return redirect(url_for("homepage"))
+            return redirect(url_for("home"))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -808,10 +829,61 @@ def room(code):
         flash("Error loading room data")
         return redirect(url_for("home"))
     
-@app.route('/firebase-messaging-sw.js')
-def serve_sw():
-    root_dir = os.path.abspath(os.getcwd())  # Gets the current working directory (project root)
-    return send_from_directory(root_dir, 'firebase-messaging-sw.js', mimetype='application/javascript')
+@app.route("/", methods=["POST", "GET"])
+@login_required
+def home():
+    if "username" not in session:
+        return redirect(url_for("login"))
+        
+    username = session["username"]
+    
+    # Get or create user data
+    user_data = users_collection.find_one({"username": username})
+    if not user_data:
+        # Initialize new user data if it doesn't exist
+        user_data = {
+            "username": username,
+            "rooms": [],
+            "friends": [],
+            "friend_requests": [],
+            "online": True,
+            "current_room": None
+        }
+        users_collection.insert_one(user_data)
+    
+    if request.method == "POST":
+        code = request.form.get("code")
+        join = request.form.get("join", False)
+        create = request.form.get("create", False)
+        friend_username = request.form.get("friend_username")
+
+        # Handle friend request
+        if friend_username:
+            return handle_friend_request(username, friend_username)
+
+        # Handle room operations
+        if join != False and not code:
+            flash("Please enter a room code.")
+            return redirect(url_for("home"))
+        
+        return handle_room_operation(username, code, create, join)
+
+    # Get friends data with online status and current rooms
+    friends_data = []
+    for friend in user_data.get("friends", []):
+        friend_data = users_collection.find_one({"username": friend})
+        if friend_data:
+            friends_data.append({
+                "username": friend,
+                "online": friend_data.get("online", False),
+                "current_room": friend_data.get("current_room")
+            })
+
+    return render_template("homepage.html",
+                         username=username,
+                         user_data=user_data,
+                         friends=friends_data,
+                         friend_requests=user_data.get("friend_requests", []))
     
 @socketio.on("connect")
 def connect():
@@ -900,62 +972,6 @@ def disconnect():
             })
         socketio.emit("update_users", {"users": user_list}, room=room)
 
-@app.route("/", methods=["POST", "GET"])
-@login_required
-def home():
-    if "username" not in session:
-        return redirect(url_for("login"))
-        
-    username = session["username"]
-    
-    # Get or create user data
-    user_data = users_collection.find_one({"username": username})
-    if not user_data:
-        # Initialize new user data if it doesn't exist
-        user_data = {
-            "username": username,
-            "rooms": [],
-            "friends": [],
-            "friend_requests": [],
-            "online": True,
-            "current_room": None
-        }
-        users_collection.insert_one(user_data)
-    
-    if request.method == "POST":
-        code = request.form.get("code")
-        join = request.form.get("join", False)
-        create = request.form.get("create", False)
-        friend_username = request.form.get("friend_username")
-
-        # Handle friend request
-        if friend_username:
-            return handle_friend_request(username, friend_username)
-
-        # Handle room operations
-        if join != False and not code:
-            flash("Please enter a room code.")
-            return redirect(url_for("home"))
-        
-        return handle_room_operation(username, code, create, join)
-
-    # Get friends data with online status and current rooms
-    friends_data = []
-    for friend in user_data.get("friends", []):
-        friend_data = users_collection.find_one({"username": friend})
-        if friend_data:
-            friends_data.append({
-                "username": friend,
-                "online": friend_data.get("online", False),
-                "current_room": friend_data.get("current_room")
-            })
-
-    return render_template("homepage.html",
-                         username=username,
-                         user_data=user_data,
-                         friends=friends_data,
-                         friend_requests=user_data.get("friend_requests", []))
-
 @socketio.on("typing")
 def handle_typing(data):
     room = session.get("room")
@@ -963,38 +979,20 @@ def handle_typing(data):
         name = session.get("name")
         socketio.emit("typing", {"name": name, "isTyping": data.get("isTyping", False)}, room=room, include_self=False)
 
-@app.route('/register-fcm-token', methods=['POST'])
-def register_fcm_token():
-    data = request.json
-    username = session.get('username')
-    fcm_token = data.get('token')
-    
-    if username and fcm_token:
-        # Update the user's FCM token in MongoDB
-        users_collection.update_one(
-            {"username": username},
-            {"$set": {"fcm_token": fcm_token}},
-            upsert=True
-        )
-        return jsonify({"message": "FCM token registered successfully"}), 200
-    return jsonify({"error": "Invalid data"}), 400
-
 @socketio.on("message")
 def message(data):
     room = session.get("room")
     room_data = rooms_collection.find_one({"_id": room})
     if not room or not room_data:
-        return
+        return 
 
     content = {
         "id": str(ObjectId()),
         "name": session.get("name"),
         "message": data["data"],
         "reply_to": data.get("replyTo"),
-        "read_by": [session.get("name")],  # Mark as read by sender
-        "timestamp": datetime.utcnow()
     }
-
+    
     if "image" in data:
         try:
             image_data = base64.b64decode(data["image"].split(",")[1])
@@ -1005,9 +1003,9 @@ def message(data):
             content["image"] = url_for('uploaded_file', filename=filename, _external=True)
         except Exception as e:
             content["message"] = "Failed to upload image"
-
+    
     send(content, to=room)
-
+    
     # Update room messages in MongoDB
     rooms_collection.update_one(
         {"_id": room},
@@ -1017,50 +1015,12 @@ def message(data):
     # Send push notification to all users in the room except the sender
     sender_username = session.get('username')
     room_users = rooms_collection.find_one({"_id": room}, {"users": 1})["users"]
+    
     for username in room_users:
         if username != sender_username:
             user_data = users_collection.find_one({"username": username}, {"fcm_token": 1})
             if user_data and "fcm_token" in user_data:
                 send_push_notification(user_data["fcm_token"], content)
-
-@socketio.on("mark_read")
-def mark_read(data):
-    room = session.get("room")
-    username = session.get("name")
-    if not room:
-        return
-
-    # Update all unread messages as read by this user
-    result = rooms_collection.update_many(
-        {
-            "_id": room,
-            "messages": {
-                "$elemMatch": {
-                    "id": {"$in": data["messageIds"]},
-                    "read_by": {"$ne": username}
-                }
-            }
-        },
-        {"$addToSet": {"messages.$[elem].read_by": username}},
-        array_filters=[{"elem.id": {"$in": data["messageIds"]}}]
-    )
-
-    if result.modified_count:
-        # Fetch updated messages
-        updated_messages = rooms_collection.find_one(
-            {"_id": room},
-            {"messages": {"$elemMatch": {"id": {"$in": data["messageIds"]}}}},
-            {"messages.id": 1, "messages.read_by": 1}
-        )
-
-        # Emit updated read receipts to all users in the room
-        if updated_messages and "messages" in updated_messages:
-            socketio.emit("update_read_receipts", {
-                "updatedMessages": [
-                    {"id": msg["id"], "read_by": msg["read_by"]}
-                    for msg in updated_messages["messages"]
-                ]
-            }, room=room)
 
 @socketio.on("edit_message")
 def edit_message(data):
@@ -1174,4 +1134,3 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 5001))
     socketio.run(app, debug=True, allow_unsafe_werkzeug=True, host='0.0.0.0', port=port)
-
