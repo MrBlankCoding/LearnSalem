@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 from PIL import Image
 from pymongo import MongoClient
 from bson import ObjectId
-from flask_cors import CORS
 import requests
 import imghdr
 
@@ -60,16 +59,8 @@ rooms_collection.create_index([("users", 1)])
 rooms_collection.create_index([("messages.id", 1)])
 users_collection.create_index([("fcm_token", 1)])
 
-allowed_origins = [
-    'https://channelchat.onrender.com/',
-    'http://127.0.0.1:5001/'
-]
-
-# Configure CORS for your Flask app
-CORS(app, origins=allowed_origins, supports_credentials=True)
-
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins=allowed_origins)
+socketio = SocketIO(app)
 
 
 def send_push_notification(token, content):
