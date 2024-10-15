@@ -13,6 +13,7 @@ from functools import wraps
 from flask import Flask, render_template, request, session, redirect, url_for, send_from_directory, flash, jsonify
 from flask_socketio import join_room, leave_room, send, SocketIO
 from firebase_admin import credentials, messaging, initialize_app
+import firebase_admin
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
@@ -24,19 +25,8 @@ import imghdr
 
 load_dotenv()
 
-firebase_cred_json = os.getenv('FIREBASE_ADMIN_SDK')
-
-# Ensure the private key has correct newlines by replacing "\\n" with "\n"
-firebase_cred_json = firebase_cred_json.replace("\\n", "\n")
-
-# Parse the JSON string into a Python dictionary
-cred_dict = json.loads(firebase_cred_json)
-
-# Create Firebase credentials from the dictionary
-cred = credentials.Certificate(cred_dict)
-
-# Initialize Firebase app
-initialize_app(cred)
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
 
 app = Flask(__name__)
 
