@@ -32,6 +32,8 @@ cred_dict = json.loads(firebase_cred_json)
 
 # Create Firebase credentials from the dictionary
 cred = credentials.Certificate(cred_dict)
+
+# Initialize Firebase app
 initialize_app(cred)
 
 app = Flask(__name__)
