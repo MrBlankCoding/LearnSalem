@@ -20,7 +20,6 @@ let lastReadMessageId = null;
 
 //Socket initalasation
 const socketio = io({
-  transports: ['websocket', 'polling'],  // Define transports
   reconnection: true,                    // Enable reconnection attempts
   reconnectionAttempts: 5,               // Number of reconnection attempts
   reconnectionDelay: 1000,               // Delay between reconnections

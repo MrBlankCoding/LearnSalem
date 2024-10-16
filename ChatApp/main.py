@@ -60,7 +60,7 @@ rooms_collection.create_index([("messages.id", 1)])
 users_collection.create_index([("fcm_token", 1)])
 
 #SOCKET initalastion 
-socketio = SocketIO(app, cors_allowed_origins='*', transports=['websocket', 'polling'])
+socketio = SocketIO(app, cors_allowed_origins='*')
 
 def datetime_to_iso(dt):
     return dt.isoformat() if dt else None
