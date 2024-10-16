@@ -16,3 +16,6 @@
 34. Make room codes longer
 35. Make messages a nicer color
 36. Remove un used fields for messages
+37. Make the title show the unread messages
+38. Make the favcoin have a notfications icon change
+39. Make it handle tabbing out
