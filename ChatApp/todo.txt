@@ -2,15 +2,10 @@
 5. Make it so you can themify the whole thing
 7. Make the reply button work
 10. Add profile photos 
-11. Use mongo DB for long time storage
-12. Optamise message fetching
-15. Add regular and push notfications
-17. CRSF PROTECTION
+15. push notfications
 20. Make a heartbeat system for users being online
 21. Add support for room names
-22. Prevent mutiple friend requests
 23. Scale images, + make images be able to send before you reload the page
-25. Fix bug where messages have to be loaded from storage to be able to react
 26. Make a homepage lmao
 27. Message sounds 
 28. Fix the scale on mobile
@@ -19,3 +14,5 @@
 31. Make it a PWA
 33. Add kick from room
 34. Make room codes longer
+35. Make messages a nicer color
+36. Remove un used fields for messages

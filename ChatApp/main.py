@@ -61,6 +61,8 @@ users_collection.create_index([("fcm_token", 1)])
 
 socketio = SocketIO(app)
 
+def datetime_to_iso(dt):
+    return dt.isoformat() if dt else None
 
 def send_push_notification(token, content):
     message = messaging.Message(
@@ -891,11 +893,6 @@ def connect():
     username = session.get("username")
     if not room or not username:
         return
-        
-    room_data = rooms_collection.find_one({"_id": room})
-    if not room_data:
-        leave_room(room)
-        return
     
     join_room(room)
     
@@ -905,15 +902,6 @@ def connect():
         {
             "$set": {"current_room": room},
             "$addToSet": {"rooms": room}
-        }
-    )
-    
-    # Update room's user list
-    rooms_collection.update_one(
-        {"_id": room},
-        {
-            "$addToSet": {"users": username},
-            "$inc": {"members": 1}
         }
     )
     
@@ -932,7 +920,18 @@ def connect():
         })
     
     socketio.emit("update_users", {"users": user_list}, room=room)
-    socketio.emit("chat_history", {"messages": room_data.get("messages", [])}, room=request.sid)
+    
+    messages_with_read_status = []
+    for msg in room_data.get("messages", []):
+        msg_copy = msg.copy()  # Create a copy to avoid modifying the original
+        msg_copy["read_by"] = msg_copy.get("read_by", [])
+        # Convert all potential datetime fields to ISO format
+        for key, value in msg_copy.items():
+            if isinstance(value, datetime):
+                msg_copy[key] = datetime_to_iso(value)
+        messages_with_read_status.append(msg_copy)
+
+    socketio.emit("chat_history", {"messages": messages_with_read_status}, room=request.sid)
 
 @socketio.on("disconnect")
 def disconnect():
@@ -991,6 +990,8 @@ def message(data):
         "name": session.get("name"),
         "message": data["data"],
         "reply_to": data.get("replyTo"),
+        "read_by": [session.get("username")],  # Initialize with the sender
+        "timestamp": datetime.utcnow()
     }
     
     if "image" in data:
@@ -1004,13 +1005,15 @@ def message(data):
         except Exception as e:
             content["message"] = "Failed to upload image"
     
-    send(content, to=room)
-    
-    # Update room messages in MongoDB
     rooms_collection.update_one(
         {"_id": room},
         {"$push": {"messages": content}}
     )
+
+    # Convert datetime to ISO format string before sending
+    content["timestamp"] = datetime_to_iso(content["timestamp"])
+
+    send(content, to=room)
 
     # Send push notification to all users in the room except the sender
     sender_username = session.get('username')
@@ -1021,6 +1024,44 @@ def message(data):
             user_data = users_collection.find_one({"username": username}, {"fcm_token": 1})
             if user_data and "fcm_token" in user_data:
                 send_push_notification(user_data["fcm_token"], content)
+
+@socketio.on("mark_messages_read")
+def mark_messages_read(data):
+    room = session.get("room")
+    username = session.get("username")
+    if not room or not username:
+        return
+
+    current_time = datetime.utcnow()
+
+    # Update the read status of messages in the room
+    rooms_collection.update_many(
+        {
+            "_id": room,
+            "messages": {
+                "$elemMatch": {
+                    "id": {"$in": data["message_ids"]},
+                    "read_by": {"$ne": username}
+                }
+            }
+        },
+        {
+            "$addToSet": {
+                "messages.$[elem].read_by": username
+            },
+            "$set": {
+                "messages.$[elem].last_read": current_time
+            }
+        },
+        array_filters=[{"elem.id": {"$in": data["message_ids"]}}]
+    )
+
+    # Emit an event to notify other users that messages have been read
+    socketio.emit("messages_read", {
+        "reader": username,
+        "message_ids": data["message_ids"],
+        "last_read": datetime_to_iso(current_time)
+    }, room=room)
 
 @socketio.on("edit_message")
 def edit_message(data):

@@ -6,6 +6,7 @@ const imageUpload = document.getElementById('image-upload');
 const leaveRoomButton = document.getElementById("leave-room-btn");
 const username = document.getElementById("username").value;
 const NOTIFICATION_TIMEOUT = 5000; // 5 seconds
+const unreadMessages = new Set();
 
 // State variables
 let replyingTo = null;
@@ -15,6 +16,7 @@ let currentUser = null;
 let typingUsers = new Set();
 let notificationPermission = 'default';
 let notificationTimeout;
+let lastReadMessageId = null;
 
 // Socket connection
 const socketio = io();
@@ -30,139 +32,145 @@ const createTypingIndicator = () => {
 
 const typingIndicator = createTypingIndicator();
 
-const createMessageElement = (name, msg, image, messageId, replyTo) => {
+const createMessageElement = (name, msg, image, messageId, replyTo, reactions, readBy) => {
   const isCurrentUser = name === currentUser;
   
   const element = document.createElement("div");
   element.className = `message flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`;
 
-  const messageBubble = `
-    <div class="group relative p-2 rounded-lg shadow-md max-w-[85%] md:max-w-[70%] hover:shadow-lg transition-shadow duration-200
-      ${isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-900'}" 
-      data-message-id="${messageId}">
-      
-      <!-- Reaction Menu (initially hidden, shown when emoji button is clicked) -->
-    <div class="reaction-menu hidden absolute -top-8 ${isCurrentUser ? 'right-0' : 'left-0'} 
-        flex items-center space-x-1 bg-white rounded-lg shadow-lg px-2 py-1.5 transition-all duration-200 z-50">
-      <button class="emoji-reaction" data-emoji="👍">👍</button>
-      <button class="emoji-reaction" data-emoji="❤️">❤️</button>
-      <button class="emoji-reaction" data-emoji="😂">😂</button>
-      <button class="emoji-reaction" data-emoji="😮">😮</button>
-      <button class="emoji-reaction" data-emoji="😢">😢</button>
-    </div>
+  const messageBubble = document.createElement("div");
+  messageBubble.className = `group relative p-3 rounded-lg shadow-md max-w-[85%] md:max-w-[70%] hover:shadow-lg transition-shadow duration-200 ${isCurrentUser ? (readBy.length > 1 ? 'bg-purple-600' : 'bg-blue-600') : 'bg-gray-100'} text-white`;
+  messageBubble.dataset.messageId = messageId;
 
-      <!-- Message Content -->
-      <div class="message-content leading-relaxed break-words">${msg || "Sent an image"}</div>
+  // Message content
+  const messageContent = document.createElement("div");
+  messageContent.className = "message-content leading-relaxed break-words";
+  messageContent.textContent = msg || "Sent an image";
+  messageBubble.appendChild(messageContent);
 
-      <!-- Reply Information -->
-      ${replyTo ? `
-        <div class="reply-info mt-2 text-sm ${isCurrentUser ? 'text-white/75' : 'text-gray-500'} pl-3 border-l-2 border-current" data-reply-to="${replyTo.id}">
-          Replying to: <span class="replied-message italic">${replyTo.message}</span>
-        </div>
-      ` : ''}
+  // Reply information
+  if (replyTo) {
+    const replyInfo = document.createElement("div");
+    replyInfo.className = `reply-info mt-2 text-sm ${isCurrentUser ? 'text-white/75' : 'text-gray-500'} pl-3 border-l-2 border-current`;
+    replyInfo.dataset.replyTo = replyTo.id;
+    replyInfo.innerHTML = `Replying to: <span class="replied-message italic">${replyTo.message}</span>`;
+    messageBubble.appendChild(replyInfo);
+  }
 
-      <!-- Image -->
-      ${image ? `
-        <img src="${image}" alt="Uploaded image" class="mt-2 max-w-full rounded-lg">
-      ` : ''}
+  // Image
+  if (image) {
+    const img = document.createElement("img");
+    img.src = image;
+    img.alt = "Uploaded image";
+    img.className = "mt-2 max-w-full rounded-lg";
+    messageBubble.appendChild(img);
+  }
 
-      <!-- Hover Actions Menu (Edit, Delete, Reply) -->
-      <div class="actions-menu opacity-0 group-hover:opacity-100 absolute -top-8 ${isCurrentUser ? 'right-0' : 'left-0'} 
-           flex items-center space-x-2 bg-white rounded-lg shadow-lg px-2 py-1 transition-opacity duration-200 z-10">
-        <!-- Reaction Button (Toggles the Emoji Reaction Menu) -->
-        <button class="reaction-button hover:bg-gray-100 p-1.5 rounded transition-colors duration-150" title="Add reaction">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
+  // Reaction menu
+  const reactionMenu = createReactionMenu(isCurrentUser);
+  messageBubble.appendChild(reactionMenu);
 
-        <!-- Reply Button -->
-        <button class="reply-btn hover:bg-gray-100 p-1.5 rounded transition-colors duration-150" title="Reply">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-          </svg>
-        </button>
+  // Actions menu
+  const actionsMenu = createActionsMenu(isCurrentUser);
+  messageBubble.appendChild(actionsMenu);
 
-        ${isCurrentUser ? `
-          <!-- Edit Button (only for current user's messages) -->
-          <button class="edit-btn hover:bg-gray-100 p-1.5 rounded transition-colors duration-150" title="Edit">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
+  // Reactions container
+  const reactionsContainer = document.createElement("div");
+  reactionsContainer.className = "message-reactions flex flex-wrap gap-1 mt-1";
+  messageBubble.appendChild(reactionsContainer);
 
-          <!-- Delete Button (only for current user's messages) -->
-          <button class="delete-btn hover:bg-gray-100 p-1.5 rounded transition-colors duration-150" title="Delete">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        ` : ''}
-      </div>
-
-      <!-- Reactions Container -->
-      <div class="message-reactions flex space-x-2 mt-1"></div>
-    </div>
-  `;
-
-  element.innerHTML = messageBubble;
+  element.appendChild(messageBubble);
 
   // Add event listeners
-  const messageElement = element.querySelector('[data-message-id]');
-  
-  // Reaction button listener
-  const reactionBtn = messageElement.querySelector('button[title="Add reaction"]');
-  if (reactionBtn) {
-    reactionBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const reactionMenu = messageElement.querySelector('.reaction-menu');
-      const actionsMenu = messageElement.querySelector('.actions-menu');
-      
-      // Toggle emoji menu and hide the actions menu
-      reactionMenu.classList.toggle('hidden');
-      actionsMenu.classList.add('opacity-0');  // Hide the actions menu
-    });
-  }
-
-  // Reply button listener
-  const replyBtn = messageElement.querySelector('button[title="Reply"]');
-  if (replyBtn) {
-    replyBtn.addEventListener('click', () => {
-      startReply(messageId, msg);
-    });
-  }
-
-  // Edit button listener
-  const editBtn = messageElement.querySelector('button[title="Edit"]');
-  if (editBtn) {
-    editBtn.addEventListener('click', () => {
-      editMessage(messageId);
-    });
-  }
-
-  // Delete button listener
-  const deleteBtn = messageElement.querySelector('button[title="Delete"]');
-  if (deleteBtn) {
-    deleteBtn.addEventListener('click', () => {
-      deleteMessage(messageId);
-    });
-  }
-
-  // Emoji reaction listener
-  const emojiButtons = messageElement.querySelectorAll('.emoji-reaction');
-  const reactionsContainer = messageElement.querySelector('.message-reactions');
-  
-  emojiButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const emoji = button.getAttribute('data-emoji');
-      handleReaction(emoji, reactionsContainer);
-      messageElement.querySelector('.reaction-menu').classList.add('hidden');  // Close emoji menu
-    });
-  });
+  addEventListeners(messageBubble, messageId, msg);
 
   return element;
 };
 
+const createReactionMenu = (isCurrentUser) => {
+  const reactionMenu = document.createElement("div");
+  reactionMenu.className = `reaction-menu hidden absolute -top-8 ${isCurrentUser ? 'right-0' : 'left-0'} 
+    flex items-center space-x-1 bg-white rounded-lg shadow-lg px-2 py-1.5 transition-all duration-200 z-50`;
+  
+  const emojis = ["👍", "❤️", "😂", "😮", "😢"];
+  emojis.forEach(emoji => {
+    const button = document.createElement("button");
+    button.className = "emoji-reaction hover:bg-gray-100 p-1 rounded transition-colors duration-150";
+    button.dataset.emoji = emoji;
+    button.textContent = emoji;
+    reactionMenu.appendChild(button);
+  });
+
+  return reactionMenu;
+};
+
+const createActionsMenu = (isCurrentUser) => {
+  const actionsMenu = document.createElement("div");
+  actionsMenu.className = `actions-menu opacity-0 group-hover:opacity-100 absolute -top-8 ${isCurrentUser ? 'right-0' : 'left-0'} 
+    flex items-center space-x-2 bg-white rounded-lg shadow-lg px-2 py-1 transition-opacity duration-200 z-10`;
+
+  const actions = [
+    { title: "Add reaction", icon: "M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { title: "Reply", icon: "M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" },
+    { title: "Edit", icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", onlyCurrentUser: true },
+    { title: "Delete", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", onlyCurrentUser: true, color: "text-red-600" }
+  ];
+
+  actions.forEach(action => {
+    if (!action.onlyCurrentUser || (action.onlyCurrentUser && isCurrentUser)) {
+      const button = document.createElement("button");
+      button.className = `${action.title.toLowerCase()}-btn hover:bg-gray-100 p-1.5 rounded transition-colors duration-150`;
+      button.title = action.title;
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ${action.color || 'text-gray-600'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${action.icon}" />
+        </svg>
+      `;
+      actionsMenu.appendChild(button);
+    }
+  });
+
+  return actionsMenu;
+};
+
+const addEventListeners = (messageBubble, messageId, msg) => {
+  const reactionBtn = messageBubble.querySelector('button[title="Add reaction"]');
+  const replyBtn = messageBubble.querySelector('button[title="Reply"]');
+  const editBtn = messageBubble.querySelector('button[title="Edit"]');
+  const deleteBtn = messageBubble.querySelector('button[title="Delete"]');
+  const emojiButtons = messageBubble.querySelectorAll('.emoji-reaction');
+  const reactionsContainer = messageBubble.querySelector('.message-reactions');
+
+  if (reactionBtn) {
+    reactionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const reactionMenu = messageBubble.querySelector('.reaction-menu');
+      const actionsMenu = messageBubble.querySelector('.actions-menu');
+      reactionMenu.classList.toggle('hidden');
+      actionsMenu.classList.add('opacity-0');
+    });
+  }
+
+  if (replyBtn) {
+    replyBtn.addEventListener('click', () => startReply(messageId, msg));
+  }
+
+  if (editBtn) {
+    editBtn.addEventListener('click', () => editMessage(messageId));
+  }
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => deleteMessage(messageId));
+  }
+
+  emojiButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const emoji = button.dataset.emoji;
+      handleReaction(emoji, reactionsContainer);
+      messageBubble.querySelector('.reaction-menu').classList.add('hidden');
+    });
+  });
+};
 
 const createReplyContent = (replyTo) => `
   <div class="reply-info text-sm text-gray-500 italic" data-reply-to="${replyTo.id}">
@@ -207,6 +215,21 @@ const createMessageActions = (isCurrentUser, messageId, msg) =>
           reactionMenu.classList.toggle('hidden');
         });
       }
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const messageId = entry.target.getAttribute('data-message-id');
+            if (unreadMessages.has(messageId)) {
+              markMessagesAsRead();
+            }
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 1.0 });
+    
+      // Observe the new message element
+      observer.observe(element);
       
       // Add event listeners for edit and delete buttons
       if (element.querySelector('.edit-btn')) {
@@ -218,7 +241,8 @@ const createMessageActions = (isCurrentUser, messageId, msg) =>
         const deleteBtn = element.querySelector('.delete-btn');
         deleteBtn.addEventListener('click', () => deleteMessage(element.getAttribute('data-message-id')));
       }
-    };
+};
+    
 
 const scrollToMessage = (messageId) => {
   const targetMessage = document.querySelector(`[data-message-id="${messageId}"]`);
@@ -424,10 +448,43 @@ const showNotification = (title, body) => {
   }
 };
 
+const updateReadReceipt = (element, readBy, lastRead) => {
+  if (readBy && readBy.length > 0) {
+    if (readBy.length === 1) {
+      element.textContent = `Read by ${readBy[0]} at ${formatDate(lastRead)}`;
+    } else {
+      element.textContent = `Read by ${readBy.length} users, last at ${formatDate(lastRead)}`;
+    }
+  } else {
+    element.textContent = 'Delivered';
+  }
+};
+
+const markMessagesAsRead = () => {
+  if (unreadMessages.size > 0) {
+    const messageIds = Array.from(unreadMessages);
+    socketio.emit("mark_messages_read", { message_ids: messageIds });
+    unreadMessages.clear();
+  }
+};
+
 
 socketio.on("message", (data) => {
-  const messageElement = createMessageElement(data.name, data.message, data.image, data.id, data.replyTo, data.reactions);
+  const messageElement = createMessageElement(
+    data.name, 
+    data.message, 
+    data.image, 
+    data.id, 
+    data.replyTo, 
+    data.reactions, 
+    data.read_by
+  );
   addMessageToDOM(messageElement);
+
+  if (data.name !== currentUser) {
+    unreadMessages.add(data.id);
+    markMessagesAsRead();
+  }
 
   // Show notification for new messages from others
   if (data.name !== currentUser) {
@@ -454,6 +511,17 @@ socketio.on("message", (data) => {
   }
 });
 
+socketio.on("messages_read", (data) => {
+  const { reader, message_ids } = data;
+  message_ids.forEach(id => {
+    const messageElement = document.querySelector(`[data-message-id="${id}"]`);
+    if (messageElement && messageElement.classList.contains('bg-blue-600')) {
+      messageElement.classList.remove('bg-blue-600');
+      messageElement.classList.add('bg-purple-600');
+    }
+  });
+});
+
 socketio.on("chat_history", (data) => {
   messages.scrollTop = messages.scrollHeight;
   const messageContainer = document.createElement('div');
@@ -466,14 +534,21 @@ socketio.on("chat_history", (data) => {
       message.image, 
       message.id, 
       message.replyTo, 
-      message.reactions
+      message.reactions,
+      message.read_by,
+      message.timestamp
     );
     messageContainer.appendChild(messageElement);
+
+    if (message.name !== currentUser && !message.read_by.includes(currentUser)) {
+      unreadMessages.add(message.id);
+    }
   });
   
   // Clear existing messages and append the new container
   messages.innerHTML = '';
   messages.appendChild(messageContainer);
+  markMessagesAsRead();
 
 });
 
@@ -577,3 +652,4 @@ socketio.on("update_users", (data) => {
     userList.appendChild(userBadge);
   });
 });
+window.addEventListener('focus', markMessagesAsRead);
