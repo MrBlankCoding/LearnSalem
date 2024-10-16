@@ -1,6 +1,6 @@
 3. Make the homepage have more features like sign-out and settings
 5. Make it so you can themify the whole thing
-7. Make the reply button work
+7. Make the reply button work -> JS is overriding HTML
 10. Add profile photos 
 15. push notfications
 20. Make a heartbeat system for users being online

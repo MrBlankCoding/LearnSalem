@@ -145,32 +145,8 @@
 
 <div id="emoji-picker" class="emoji-picker hidden absolute bg-white shadow-lg rounded-lg p-4 z-40"></div>
 <input type="hidden" id="username" value="{{ session.get('name') }}">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK" crossorigin="anonymous"></script>
 <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
-  var socketio = io({
-    transports: ['websocket']  // Ensure only WebSocket is used
-});
-   socket.on('connect', function() {
-       socket.emit('join', {});
-   });
-   
-   socket.on('status', function(data) {
-       $('#chat').val($('#chat').val() + '<' + data.msg + '>\n');
-       $('#chat').scrollTop($('#chat')[0].scrollHeight);
-   });
-   
-   socket.on('message', function(data) {
-       $('#chat').val($('#chat').val() + data.msg + '\n');
-       $('#chat').scrollTop($('#chat')[0].scrollHeight);
-   });
-   
-   $('#send').click(function(e) {
-       text = $('#text').val();
-       $('#text').val('');
-       socket.emit('text', {msg: text});
-   });
-   
    function copyRoomCode() {
     var roomCodeText = document.getElementById('room-code-text').textContent;
     navigator.clipboard.writeText(roomCodeText).then(function() {

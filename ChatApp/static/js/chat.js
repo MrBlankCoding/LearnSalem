@@ -18,6 +18,10 @@ let notificationPermission = 'default';
 let notificationTimeout;
 let lastReadMessageId = null;
 
+var socketio = io({
+  transports: ['websocket']  // Ensure only WebSocket is used
+});
+
 // Helper functions
 const createTypingIndicator = () => {
   const typingIndicator = document.createElement("div");
