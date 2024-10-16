@@ -18,14 +18,6 @@ let notificationPermission = 'default';
 let notificationTimeout;
 let lastReadMessageId = null;
 
-//Socket initalasation
-const socketio = io({
-  reconnection: true,                    // Enable reconnection attempts
-  reconnectionAttempts: 5,               // Number of reconnection attempts
-  reconnectionDelay: 1000,               // Delay between reconnections
-  timeout: 5000                          // Timeout for connections
-});
-
 // Helper functions
 const createTypingIndicator = () => {
   const typingIndicator = document.createElement("div");

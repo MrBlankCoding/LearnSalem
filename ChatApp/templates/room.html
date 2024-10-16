@@ -146,9 +146,11 @@
 <div id="emoji-picker" class="emoji-picker hidden absolute bg-white shadow-lg rounded-lg p-4 z-40"></div>
 <input type="hidden" id="username" value="{{ session.get('name') }}">
 <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
-   var socket = io();
+  var socketio = io({
+    transports: ['websocket']  // Ensure only WebSocket is used
+});
    socket.on('connect', function() {
        socket.emit('join', {});
    });
