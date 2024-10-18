@@ -17,6 +17,9 @@ let typingUsers = new Set();
 let notificationPermission = 'default';
 let notificationTimeout;
 let lastReadMessageId = null;
+let isTabActive = true;
+let unreadCount = 0;
+const originalTitle = document.title;
 
 var socketio = io({
   transports: ['websocket']  // Ensure only WebSocket is used
@@ -30,6 +33,29 @@ const createTypingIndicator = () => {
   messages.parentNode.insertBefore(typingIndicator, messages.nextSibling);
   return typingIndicator;
 };
+
+const updatePageTitle = () => {
+  if (unreadCount > 0) {
+    document.title = `(${unreadCount}) ${originalTitle}`;
+  } else {
+    document.title = originalTitle;
+  }
+};
+
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    isTabActive = false;
+  } else {
+    isTabActive = true;
+    if (unreadCount > 0) {
+      markMessagesAsRead();
+      unreadCount = 0;
+      updatePageTitle();
+    }
+  }
+};
+
+document.addEventListener("visibilitychange", handleVisibilityChange);
 
 const typingIndicator = createTypingIndicator();
 
@@ -431,17 +457,15 @@ const requestNotificationPermission = () => {
 
 // Function to show a notification
 const showNotification = (title, body) => {
-  if (notificationPermission === 'granted' && document.hidden) {
+  if (notificationPermission === 'granted' && !isTabActive) {
     const notification = new Notification(title, {
       body: body,
-      icon: '/static/images/chat-icon.png' // Make sure to add an appropriate icon
+      icon: '/static/images/chat-icon.png'
     });
 
-    // Close the notification after NOTIFICATION_TIMEOUT
     clearTimeout(notificationTimeout);
     notificationTimeout = setTimeout(() => notification.close(), NOTIFICATION_TIMEOUT);
 
-    // Handle notification click
     notification.onclick = () => {
       window.focus();
       notification.close();
@@ -462,13 +486,12 @@ const updateReadReceipt = (element, readBy, lastRead) => {
 };
 
 const markMessagesAsRead = () => {
-  if (unreadMessages.size > 0) {
+  if (isTabActive && unreadMessages.size > 0) {
     const messageIds = Array.from(unreadMessages);
     socketio.emit("mark_messages_read", { message_ids: messageIds });
     unreadMessages.clear();
   }
 };
-
 
 socketio.on("message", (data) => {
   const messageElement = createMessageElement(
@@ -484,12 +507,13 @@ socketio.on("message", (data) => {
 
   if (data.name !== currentUser) {
     unreadMessages.add(data.id);
-    markMessagesAsRead();
-  }
-
-  // Show notification for new messages from others
-  if (data.name !== currentUser) {
-    showNotification(`New message from ${data.name}`, data.message || "New image message");
+    if (isTabActive) {
+      markMessagesAsRead();
+    } else {
+      unreadCount++;
+      updatePageTitle();
+      showNotification(`New message from ${data.name}`, data.message || "New image message");
+    }
   }
 
   const replyInfo = messageElement.querySelector('.reply-info');
@@ -653,4 +677,3 @@ socketio.on("update_users", (data) => {
     userList.appendChild(userBadge);
   });
 });
-window.addEventListener('focus', markMessagesAsRead);
