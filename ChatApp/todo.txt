@@ -18,3 +18,7 @@
 47. Make rooms menu scale propperly on mobile
 48. Rabbit mQ 😀🔫
 49. GIF API
+50. Message reactions -> fix
+51. Make it so edit messages works
+52. Make it so you cant read your own messages
+53. New Reply UI
