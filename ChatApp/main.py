@@ -625,7 +625,7 @@ def decline_room_invite(room_code):
 def handle_room_operation(username, code, create, join):
     room = code
     if create:
-        room = generate_unique_code(4)
+        room = generate_unique_code(10)
         rooms_collection.insert_one({
             "_id": room,
             "members": 0,

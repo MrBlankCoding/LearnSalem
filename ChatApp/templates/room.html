@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="h-screen w-screen flex flex-col bg-gray-50">
+<div class="flex flex-col h-screen h-[100dvh]">
   <!-- Chat Room Header -->
-  <div class="bg-white border-b border-gray-200">
+  <div class="sticky top-0 z-10 bg-white border-b border-gray-200">
     <div class="room-header flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white px-4 py-3 space-y-4 sm:space-y-0">
       <div class="flex items-center space-x-3">
         <h2 id="room-code" class="text-xl font-semibold text-gray-800 cursor-pointer hover:opacity-90 transition duration-200 flex items-center gap-2" onclick="copyRoomCode()">
@@ -59,40 +59,40 @@
     </div>
   </div>
 
-<!-- Replace the messages container section in room.html -->
-<div id="messages" class="flex-1 overflow-y-auto bg-white">
-  <div class="flex flex-col space-y-4 p-4">
-    {% for msg in messages %}
-      <div class="message flex {% if msg.name == session.get('name') %}justify-end{% else %}justify-start{% endif %}">
-        <div class="group relative p-3 rounded-2xl shadow-sm max-w-[85%] md:max-w-[70%] {% if msg.name == session.get('name') %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-900{% endif %}" data-message-id="{{ msg.id }}">
-          <p class="message-content">{{ msg.message }}</p>
-          
-          {% if msg.reply_to %}
-            <div class="reply-info mt-2 text-sm {% if msg.name == session.get('name') %}text-white/75{% else %}text-gray-500{% endif %} pl-3 border-l-2 border-current" data-reply-to="{{ msg.reply_to.id }}">
-              Replying to: <span class="replied-message">{{ msg.reply_to.message }}</span>
-            </div>
-          {% endif %}
-          
-          {% if msg.image %}
-            <img src="{{ msg.image }}" class="mt-2 max-w-full rounded-lg">
-          {% endif %}
-          
-          <div class="absolute bottom-full left-0 mb-2 hidden group-hover:flex items-center space-x-2 bg-white shadow-lg rounded-lg px-2 py-1">
-            {% if msg.name == session.get('name') %}
-              <button class="edit-btn text-gray-600 hover:text-gray-900 text-sm">Edit</button>
-              <button class="delete-btn text-red-600 hover:text-red-700 text-sm">Delete</button>
-            {% else %}
-              <button class="reply-btn text-gray-600 hover:text-gray-900 text-sm">Reply</button>
+  <!-- Messages Container -->
+  <div id="messages" class="flex-1 overflow-y-auto bg-white">
+    <div class="flex flex-col space-y-4 p-4">
+      {% for msg in messages %}
+        <div class="message flex {% if msg.name == session.get('name') %}justify-end{% else %}justify-start{% endif %}">
+          <div class="group relative p-3 rounded-2xl shadow-sm max-w-[85%] md:max-w-[70%] {% if msg.name == session.get('name') %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-900{% endif %}" data-message-id="{{ msg.id }}">
+            <p class="message-content">{{ msg.message }}</p>
+            
+            {% if msg.reply_to %}
+              <div class="reply-info mt-2 text-sm {% if msg.name == session.get('name') %}text-white/75{% else %}text-gray-500{% endif %} pl-3 border-l-2 border-current" data-reply-to="{{ msg.reply_to.id }}">
+                Replying to: <span class="replied-message">{{ msg.reply_to.message }}</span>
+              </div>
             {% endif %}
+            
+            {% if msg.image %}
+              <img src="{{ msg.image }}" class="mt-2 max-w-full rounded-lg">
+            {% endif %}
+            
+            <div class="absolute bottom-full left-0 mb-2 hidden group-hover:flex items-center space-x-2 bg-white shadow-lg rounded-lg px-2 py-1">
+              {% if msg.name == session.get('name') %}
+                <button class="edit-btn text-gray-600 hover:text-gray-900 text-sm">Edit</button>
+                <button class="delete-btn text-red-600 hover:text-red-700 text-sm">Delete</button>
+              {% else %}
+                <button class="reply-btn text-gray-600 hover:text-gray-900 text-sm">Reply</button>
+              {% endif %}
+            </div>
           </div>
         </div>
-      </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
-</div>
 
   <!-- Message Input -->
-  <div class="bg-white border-t border-gray-200 p-4">
+  <div class="sticky bottom-0 bg-white border-t border-gray-200 p-4">
     <div class="max-w-6xl mx-auto flex items-center space-x-3">
       <div class="flex space-x-2">
         <label for="image-upload" class="shrink-0 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full cursor-pointer transition-colors">
@@ -147,16 +147,12 @@
 <input type="hidden" id="username" value="{{ session.get('name') }}">
 <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
-   function copyRoomCode() {
+  function copyRoomCode() {
     var roomCodeText = document.getElementById('room-code-text').textContent;
     navigator.clipboard.writeText(roomCodeText).then(function() {
       var roomCodeElement = document.getElementById('room-code');
-      var originalHTML = roomCodeElement.innerHTML; // Save the original content
-  
-      // Replace the icon and text with "Copied!"
+      var originalHTML = roomCodeElement.innerHTML;
       roomCodeElement.innerHTML = '<span>Copied!</span>';
-  
-      // After 1 second, revert it back to the original content
       setTimeout(function() {
         roomCodeElement.innerHTML = originalHTML;
       }, 1000);
@@ -165,16 +161,15 @@
     });
   }
   
+  function showInviteModal() {
+    document.getElementById('invite-modal').classList.remove('hidden');
+    document.getElementById('invite-modal').classList.add('flex');
+  }
    
-   function showInviteModal() {
-     document.getElementById('invite-modal').classList.remove('hidden');
-     document.getElementById('invite-modal').classList.add('flex');
-   }
-   
-   function hideInviteModal() {
-     document.getElementById('invite-modal').classList.add('hidden');
-     document.getElementById('invite-modal').classList.remove('flex');
-   }
+  function hideInviteModal() {
+    document.getElementById('invite-modal').classList.add('hidden');
+    document.getElementById('invite-modal').classList.remove('flex');
+  }
 </script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 {% endblock %}

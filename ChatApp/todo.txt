@@ -8,12 +8,10 @@
 23. Scale images, + make images be able to send before you reload the page
 26. Make a homepage lmao
 27. Message sounds 
-28. Fix the scale on mobile
 29. Remove odd gap between messages 
 30. Remove gap between text and message boarders
 31. Make it a PWA
 33. Add kick from room
-34. Make room codes longer
 35. Make messages a nicer color
 36. Remove un used fields for messages
 38. Make the favcoin have a notfications icon change
