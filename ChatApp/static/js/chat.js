@@ -59,14 +59,14 @@ document.addEventListener("visibilitychange", handleVisibilityChange);
 
 const typingIndicator = createTypingIndicator();
 
-const createMessageElement = (name, msg, image, messageId, replyTo, reactions, readBy) => {
+const createMessageElement = (name, msg, image, messageId, replyTo) => {
   const isCurrentUser = name === currentUser;
   
   const element = document.createElement("div");
   element.className = `message flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`;
 
   const messageBubble = document.createElement("div");
-  messageBubble.className = `group relative p-3 rounded-lg shadow-md max-w-[85%] md:max-w-[70%] hover:shadow-lg transition-shadow duration-200 ${isCurrentUser ? (readBy.length > 1 ? 'bg-purple-600' : 'bg-blue-600') : 'bg-gray-100'} text-white`;
+  messageBubble.className = `group relative p-3 rounded-lg shadow-md max-w-[85%] md:max-w-[70%] hover:shadow-lg transition-shadow duration-200 ${isCurrentUser ? 'bg-blue-600' : 'bg-gray-100'} ${isCurrentUser ? 'text-white' : 'text-gray-800'}`;
   messageBubble.dataset.messageId = messageId;
 
   // Message content
@@ -93,18 +93,9 @@ const createMessageElement = (name, msg, image, messageId, replyTo, reactions, r
     messageBubble.appendChild(img);
   }
 
-  // Reaction menu
-  const reactionMenu = createReactionMenu(isCurrentUser);
-  messageBubble.appendChild(reactionMenu);
-
   // Actions menu
   const actionsMenu = createActionsMenu(isCurrentUser);
   messageBubble.appendChild(actionsMenu);
-
-  // Reactions container
-  const reactionsContainer = document.createElement("div");
-  reactionsContainer.className = "message-reactions flex flex-wrap gap-1 mt-1";
-  messageBubble.appendChild(reactionsContainer);
 
   element.appendChild(messageBubble);
 
@@ -114,30 +105,12 @@ const createMessageElement = (name, msg, image, messageId, replyTo, reactions, r
   return element;
 };
 
-const createReactionMenu = (isCurrentUser) => {
-  const reactionMenu = document.createElement("div");
-  reactionMenu.className = `reaction-menu hidden absolute -top-8 ${isCurrentUser ? 'right-0' : 'left-0'} 
-    flex items-center space-x-1 bg-white rounded-lg shadow-lg px-2 py-1.5 transition-all duration-200 z-50`;
-  
-  const emojis = ["👍", "❤️", "😂", "😮", "😢"];
-  emojis.forEach(emoji => {
-    const button = document.createElement("button");
-    button.className = "emoji-reaction hover:bg-gray-100 p-1 rounded transition-colors duration-150";
-    button.dataset.emoji = emoji;
-    button.textContent = emoji;
-    reactionMenu.appendChild(button);
-  });
-
-  return reactionMenu;
-};
-
 const createActionsMenu = (isCurrentUser) => {
   const actionsMenu = document.createElement("div");
   actionsMenu.className = `actions-menu opacity-0 group-hover:opacity-100 absolute -top-8 ${isCurrentUser ? 'right-0' : 'left-0'} 
     flex items-center space-x-2 bg-white rounded-lg shadow-lg px-2 py-1 transition-opacity duration-200 z-10`;
 
   const actions = [
-    { title: "Add reaction", icon: "M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { title: "Reply", icon: "M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" },
     { title: "Edit", icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", onlyCurrentUser: true },
     { title: "Delete", icon: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16", onlyCurrentUser: true, color: "text-red-600" }
@@ -161,22 +134,9 @@ const createActionsMenu = (isCurrentUser) => {
 };
 
 const addEventListeners = (messageBubble, messageId, msg) => {
-  const reactionBtn = messageBubble.querySelector('button[title="Add reaction"]');
   const replyBtn = messageBubble.querySelector('button[title="Reply"]');
   const editBtn = messageBubble.querySelector('button[title="Edit"]');
   const deleteBtn = messageBubble.querySelector('button[title="Delete"]');
-  const emojiButtons = messageBubble.querySelectorAll('.emoji-reaction');
-  const reactionsContainer = messageBubble.querySelector('.message-reactions');
-
-  if (reactionBtn) {
-    reactionBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const reactionMenu = messageBubble.querySelector('.reaction-menu');
-      const actionsMenu = messageBubble.querySelector('.actions-menu');
-      reactionMenu.classList.toggle('hidden');
-      actionsMenu.classList.add('opacity-0');
-    });
-  }
 
   if (replyBtn) {
     replyBtn.addEventListener('click', () => startReply(messageId, msg));
@@ -189,87 +149,33 @@ const addEventListeners = (messageBubble, messageId, msg) => {
   if (deleteBtn) {
     deleteBtn.addEventListener('click', () => deleteMessage(messageId));
   }
+};
 
-  emojiButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const emoji = button.dataset.emoji;
-      handleReaction(emoji, reactionsContainer);
-      messageBubble.querySelector('.reaction-menu').classList.add('hidden');
+const addMessageToDOM = (element) => {
+  let messageContainer = messages.querySelector('.flex.flex-col');
+  if (!messageContainer) {
+    messageContainer = document.createElement('div');
+    messageContainer.className = 'flex flex-col space-y-4 p-4';
+    messages.appendChild(messageContainer);
+  }
+  
+  messageContainer.appendChild(element);
+  messages.scrollTop = messages.scrollHeight;
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const messageId = entry.target.getAttribute('data-message-id');
+        if (unreadMessages.has(messageId)) {
+          markMessagesAsRead();
+        }
+        observer.unobserve(entry.target);
+      }
     });
-  });
+  }, { threshold: 1.0 });
+
+  observer.observe(element);
 };
-
-const createReplyContent = (replyTo) => `
-  <div class="reply-info text-sm text-gray-500 italic" data-reply-to="${replyTo.id}">
-    Replying to: <span class="replied-message">${replyTo.message}</span>
-  </div>
-`;
-
-const createMessageActions = (isCurrentUser, messageId, msg) => 
-  isCurrentUser 
-    ? `
-      <div class="message-actions">
-        <button class="edit-btn">Edit</button>
-        <button class="delete-btn">Delete</button>
-      </div>
-    ` 
-    : `
-      <div class="message-actions">
-        <button class="reply-btn">Reply</button>
-      </div>
-    `;
-
-    const addMessageToDOM = (element) => {
-      // Create a container for the message if it doesn't exist
-      let messageContainer = messages.querySelector('.flex.flex-col');
-      if (!messageContainer) {
-        messageContainer = document.createElement('div');
-        messageContainer.className = 'flex flex-col space-y-4 p-4';
-        messages.appendChild(messageContainer);
-      }
-      
-      // Append the message to the container
-      messageContainer.appendChild(element);
-      messages.scrollTop = messages.scrollHeight;
-      
-      // Add event listeners for reactions and message actions
-      const reactionButton = element.querySelector('.reaction-button');
-      const reactionMenu = element.querySelector('.reaction-menu');
-      
-      if (reactionButton && reactionMenu) {
-        reactionButton.addEventListener('click', (e) => {
-          e.stopPropagation();
-          reactionMenu.classList.toggle('hidden');
-        });
-      }
-
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const messageId = entry.target.getAttribute('data-message-id');
-            if (unreadMessages.has(messageId)) {
-              markMessagesAsRead();
-            }
-            observer.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 1.0 });
-    
-      // Observe the new message element
-      observer.observe(element);
-      
-      // Add event listeners for edit and delete buttons
-      if (element.querySelector('.edit-btn')) {
-        const editBtn = element.querySelector('.edit-btn');
-        editBtn.addEventListener('click', () => editMessage(element.getAttribute('data-message-id')));
-      }
-      
-      if (element.querySelector('.delete-btn')) {
-        const deleteBtn = element.querySelector('.delete-btn');
-        deleteBtn.addEventListener('click', () => deleteMessage(element.getAttribute('data-message-id')));
-      }
-};
-    
 
 const scrollToMessage = (messageId) => {
   const targetMessage = document.querySelector(`[data-message-id="${messageId}"]`);
@@ -312,18 +218,15 @@ const editMessage = (messageId) => {
   const input = document.createElement('input');
   input.type = 'text';
   input.value = currentText;
-  // Update input styling to match message bubble colors
   input.className = `rounded-md p-1 w-full ${
     isCurrentUser 
       ? 'bg-indigo-700 text-white placeholder-indigo-300 border border-indigo-400' 
       : 'bg-white text-gray-900 border border-gray-300'
   }`;
   
-  // Replace the content with the input field for editing
   messageContent.replaceWith(input);
   input.focus();
 
-  // Handle the "Enter" key press or blur event to finish editing
   const handleEdit = (event) => {
     if (event.key === 'Enter' || event.type === 'blur') {
       const newText = input.value.trim();
@@ -332,7 +235,7 @@ const editMessage = (messageId) => {
       }
       finishEdit(newText, isCurrentUser);
     } else if (event.key === 'Escape') {
-      finishEdit(currentText, isCurrentUser); // If escape, revert the message
+      finishEdit(currentText, isCurrentUser);
     }
   };
 
@@ -340,12 +243,10 @@ const editMessage = (messageId) => {
     input.removeEventListener('keyup', handleEdit);
     input.removeEventListener('blur', handleEdit);
 
-    // Create a new span element with the updated message text
     const newMessageContent = document.createElement('div');
     newMessageContent.className = `message-content ${isCurrentUser ? 'text-white' : 'text-gray-900'}`;
     newMessageContent.textContent = newText;
     
-    // Replace the input field with the updated message content
     input.replaceWith(newMessageContent);
   };
 
@@ -384,16 +285,15 @@ const sendMessage = () => {
     replyTo: replyingTo
   };
   socketio.emit("message", messageData);
-  // Don't clear the input here, we'll do it after confirmation
 };
 
 const leaveRoom = () => {
   const homeUrl = leaveRoomButton.getAttribute("data-home-url");
   window.location.href = homeUrl;
 };
+
 socketio.on("message_rejected", (data) => {
   alert(`Your message was not sent: ${data.reason}`);
-  // You might want to keep the message in the input field so the user can modify it
 });
 
 // Event listeners
@@ -421,16 +321,13 @@ imageUpload.addEventListener('change', (event) => {
 });
 
 const handleReaction = (emoji, reactionsContainer) => {
-  // Check if the reaction already exists
   const existingReaction = reactionsContainer.querySelector(`span[data-emoji="${emoji}"]`);
   
   if (existingReaction) {
-    // Update the count of the existing reaction
     let count = parseInt(existingReaction.getAttribute('data-count'));
     existingReaction.setAttribute('data-count', ++count);
     existingReaction.textContent = `${emoji} ${count}`;
   } else {
-    // Add a new reaction
     const newReaction = document.createElement('span');
     newReaction.className = 'reaction';
     newReaction.setAttribute('data-emoji', emoji);
@@ -455,7 +352,6 @@ const requestNotificationPermission = () => {
   }
 };
 
-// Function to show a notification
 const showNotification = (title, body) => {
   if (notificationPermission === 'granted' && !isTabActive) {
     const notification = new Notification(title, {
@@ -472,19 +368,6 @@ const showNotification = (title, body) => {
     };
   }
 };
-
-const updateReadReceipt = (element, readBy, lastRead) => {
-  if (readBy && readBy.length > 0) {
-    if (readBy.length === 1) {
-      element.textContent = `Read by ${readBy[0]} at ${formatDate(lastRead)}`;
-    } else {
-      element.textContent = `Read by ${readBy.length} users, last at ${formatDate(lastRead)}`;
-    }
-  } else {
-    element.textContent = 'Delivered';
-  }
-};
-
 const markMessagesAsRead = () => {
   if (isTabActive && unreadMessages.size > 0) {
     const messageIds = Array.from(unreadMessages);
@@ -499,9 +382,7 @@ socketio.on("message", (data) => {
     data.message, 
     data.image, 
     data.id, 
-    data.replyTo, 
-    data.reactions, 
-    data.read_by
+    data.reply_to
   );
   addMessageToDOM(messageElement);
 
@@ -522,7 +403,6 @@ socketio.on("message", (data) => {
   }
 
   if (data.name === currentUser) {
-    // Clear the input field only when the message is successfully sent
     messageInput.value = "";
     cancelReply();
 
@@ -540,9 +420,8 @@ socketio.on("messages_read", (data) => {
   const { reader, message_ids } = data;
   message_ids.forEach(id => {
     const messageElement = document.querySelector(`[data-message-id="${id}"]`);
-    if (messageElement && messageElement.classList.contains('bg-blue-600')) {
-      messageElement.classList.remove('bg-blue-600');
-      messageElement.classList.add('bg-purple-600');
+    if (messageElement && reader !== currentUser) {
+      messageElement.style.backgroundColor = '#c084fc'; // Purple color
     }
   });
 });
@@ -558,23 +437,22 @@ socketio.on("chat_history", (data) => {
       message.message, 
       message.image, 
       message.id, 
-      message.replyTo, 
-      message.reactions,
-      message.read_by,
-      message.timestamp
+      message.reply_to
     );
     messageContainer.appendChild(messageElement);
 
     if (message.name !== currentUser && !message.read_by.includes(currentUser)) {
       unreadMessages.add(message.id);
     }
+
+    if (message.read_by.some(reader => reader !== currentUser && reader !== message.name)) {
+      messageElement.querySelector('.message-content').parentElement.style.backgroundColor = '#c084fc'; // Purple color
+    }
   });
   
-  // Clear existing messages and append the new container
   messages.innerHTML = '';
   messages.appendChild(messageContainer);
   markMessagesAsRead();
-
 });
 
 socketio.on("edit_message", (data) => {
@@ -587,13 +465,12 @@ socketio.on("edit_message", (data) => {
   }
 });
   
-  // Listen for the "delete_message" event from the server
-  socketio.on("delete_message", (data) => {
-    const messageElement = document.querySelector(`[data-message-id="${data.messageId}"]`);
-    if (messageElement) {
-      messageElement.remove(); // Remove the message from the DOM
-    }
-  });
+socketio.on("delete_message", (data) => {
+  const messageElement = document.querySelector(`[data-message-id="${data.messageId}"]`);
+  if (messageElement) {
+    messageElement.remove();
+  }
+});
 
 socketio.on("typing", (data) => {
   if (data.isTyping) {
@@ -607,53 +484,43 @@ socketio.on("typing", (data) => {
 socketio.on("connect", () => {
   console.log("Connected to server");
   currentUser = username;
-  requestNotificationPermission(); // Request notification permission when connecting
+  requestNotificationPermission();
 });
 
 socketio.on("disconnect", () => {
   console.log("Disconnected from server");
 });
 
-// Add click event listener for toggling user list
 document.querySelector('.user-toggle-btn').addEventListener('click', () => {
   const userList = document.getElementById('user-list');
   const userCountLabel = document.getElementById('user-count-label');
   
-  // Toggle the visibility of the user list
   if (isUserListVisible) {
-    // Hide user list and show the user count
     userList.classList.add('hidden');
     userCountLabel.classList.remove('hidden');
   } else {
-    // Show user list and hide the user count
     userList.classList.remove('hidden');
     userCountLabel.classList.add('hidden');
   }
   
-  // Update the toggle state
   isUserListVisible = !isUserListVisible;
 });
 
-// Your existing socket.io code for updating the user list
 socketio.on("update_users", (data) => {
   const userList = document.getElementById("user-list");
   
-  // Clear the current user list while keeping the label if screen size is md or larger
   userList.innerHTML = `
     <span class="user-list-label text-white font-semibold hidden md:inline">Users in room:</span>
   `;
   
   data.users.forEach(user => {
-    // Create a container div for each user badge
     const userBadge = document.createElement("div");
     userBadge.className = "user-badge flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm group hover:bg-gray-100 transition";
     
-    // Add the user's name (truncated if necessary)
     const userNameSpan = document.createElement("span");
     userNameSpan.className = "truncate max-w-[100px] text-gray-800";
     userNameSpan.textContent = user.username;
 
-    // Add the online/offline status indicator
     const statusIndicator = document.createElement("span");
     if (user.online) {
       statusIndicator.innerHTML = '<span class="text-green-400">🟢</span>';
@@ -661,7 +528,6 @@ socketio.on("update_users", (data) => {
       statusIndicator.innerHTML = '<span class="text-gray-400">⚫</span>';
     }
 
-    // Append the friend star if the user is a friend
     if (user.isFriend) {
       const friendStar = document.createElement("span");
       friendStar.className = "friend-star text-yellow-300";
@@ -669,11 +535,9 @@ socketio.on("update_users", (data) => {
       userBadge.appendChild(friendStar);
     }
 
-    // Append elements to the user badge
     userBadge.appendChild(userNameSpan);
     userBadge.appendChild(statusIndicator);
 
-    // Add the user badge to the user list
     userList.appendChild(userBadge);
   });
 });

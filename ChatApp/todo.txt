@@ -1,6 +1,4 @@
-3. Make the homepage have more features like sign-out and settings
 5. Make it so you can themify the whole thing
-7. Make the reply button work -> JS is overriding HTML
 10. Add profile photos 
 15. push notifications
 20. Make a heartbeat system for users being online
@@ -10,13 +8,13 @@
 29. Remove the odd gap between messages 
 30. Remove the gap between text and message boarders
 31. Make it a PWA
-33. Add kick from room
-35. Make messages a nicer color
-36. Remove unused fields for messages
 38. Make the favicon have a notifications icon change
 39. Fix the members of a room dropdown
-40. Fix the contrast of the other user's messages
-41. Fix the room members' counter
 42. Make images delete after they have been opened -> Snapchat model. 
 43. Make it so messages can not appear under the nav bar on mobile 
 44. Add pagination for messages. 
+45. Unread messages in chat rooms apear on home page
+46. If in a active channel, remove the check for if message is read
+47. Make rooms menu scale propperly on mobile
+48. Rabbit mQ 😀🔫
+49. GIF API

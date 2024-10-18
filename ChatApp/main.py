@@ -622,15 +622,70 @@ def decline_room_invite(room_code):
     flash("Room invite declined.")
     return redirect(url_for("home"))
 
+@app.route("/", methods=["POST", "GET"])
+@login_required
+def home():
+    if "username" not in session:
+        return redirect(url_for("login"))
+        
+    username = session["username"]
+    
+    # Get or create user data
+    user_data = users_collection.find_one({"username": username})
+    if not user_data:
+        # Initialize new user data if it doesn't exist
+        user_data = {
+            "username": username,
+            "rooms": [],
+            "friends": [],
+            "friend_requests": [],
+            "online": True,
+            "current_room": None
+        }
+        users_collection.insert_one(user_data)
+    
+    if request.method == "POST":
+        code = request.form.get("code")
+        join = request.form.get("join", False)
+        create = request.form.get("create", False)
+        friend_username = request.form.get("friend_username")
+
+        # Handle friend request
+        if friend_username:
+            return handle_friend_request(username, friend_username)
+
+        # Handle room operations
+        if join != False and not code:
+            flash("Please enter a room code.")
+            return redirect(url_for("home"))
+        
+        return handle_room_operation(username, code, create, join)
+
+    # Get friends data with online status and current rooms
+    friends_data = []
+    for friend in user_data.get("friends", []):
+        friend_data = users_collection.find_one({"username": friend})
+        if friend_data:
+            friends_data.append({
+                "username": friend,
+                "online": friend_data.get("online", False),
+                "current_room": friend_data.get("current_room")
+            })
+
+    return render_template("homepage.html",
+                         username=username,
+                         user_data=user_data,
+                         friends=friends_data,
+                         friend_requests=user_data.get("friend_requests", []))
+
 def handle_room_operation(username, code, create, join):
     room = code
     if create:
         room = generate_unique_code(10)
         rooms_collection.insert_one({
             "_id": room,
-            "members": 0,
+            "users": [username],
             "messages": [],
-            "users": [],
             "created_by": username,
         })
     elif join:
@@ -638,6 +693,12 @@ def handle_room_operation(username, code, create, join):
         if not room_exists:
             flash("Room does not exist.")
             return redirect(url_for("home"))
+        
+        # Add user to the room's user list
+        rooms_collection.update_one(
+            {"_id": code},
+            {"$addToSet": {"users": username}}
+        )
     
     session["room"] = room
     session["name"] = username
@@ -659,9 +720,8 @@ def get_room_data(room_code):
         room_data = rooms_collection.find_one({"_id": room_code})
         if not room_data:
             return None
-            
+        
         # Ensure all required fields exist
-        room_data.setdefault("members", 0)
         room_data.setdefault("users", [])
         room_data.setdefault("messages", [])
         room_data.setdefault("created_by", "Unknown")
@@ -742,7 +802,6 @@ def exit_room(code):
             {"_id": code},
             {
                 "$pull": {"users": username},
-                "$inc": {"members": -1}
             }
         )
         flash("You have left the room successfully.")
@@ -831,62 +890,10 @@ def room(code):
     except Exception as e:
         flash("Error loading room data")
         return redirect(url_for("home"))
-    
-@app.route("/", methods=["POST", "GET"])
-@login_required
-def home():
-    if "username" not in session:
-        return redirect(url_for("login"))
-        
-    username = session["username"]
-    
-    # Get or create user data
-    user_data = users_collection.find_one({"username": username})
-    if not user_data:
-        # Initialize new user data if it doesn't exist
-        user_data = {
-            "username": username,
-            "rooms": [],
-            "friends": [],
-            "friend_requests": [],
-            "online": True,
-            "current_room": None
-        }
-        users_collection.insert_one(user_data)
-    
-    if request.method == "POST":
-        code = request.form.get("code")
-        join = request.form.get("join", False)
-        create = request.form.get("create", False)
-        friend_username = request.form.get("friend_username")
-
-        # Handle friend request
-        if friend_username:
-            return handle_friend_request(username, friend_username)
-
-        # Handle room operations
-        if join != False and not code:
-            flash("Please enter a room code.")
-            return redirect(url_for("home"))
-        
-        return handle_room_operation(username, code, create, join)
-
-    # Get friends data with online status and current rooms
-    friends_data = []
-    for friend in user_data.get("friends", []):
-        friend_data = users_collection.find_one({"username": friend})
-        if friend_data:
-            friends_data.append({
-                "username": friend,
-                "online": friend_data.get("online", False),
-                "current_room": friend_data.get("current_room")
-            })
-
-    return render_template("homepage.html",
-                         username=username,
-                         user_data=user_data,
-                         friends=friends_data,
-                         friend_requests=user_data.get("friend_requests", []))
+                            
+    except Exception as e:
+        flash("Error loading room data")
+        return redirect(url_for("home"))
     
 @socketio.on("connect")
 def connect():
@@ -955,7 +962,6 @@ def disconnect():
         {"_id": room},
         {
             "$pull": {"users": username},
-            "$inc": {"members": -1}
         }
     )
     
@@ -972,13 +978,6 @@ def disconnect():
             })
         socketio.emit("update_users", {"users": user_list}, room=room)
 
-@socketio.on("typing")
-def handle_typing(data):
-    room = session.get("room")
-    if room:
-        name = session.get("name")
-        socketio.emit("typing", {"name": name, "isTyping": data.get("isTyping", False)}, room=room, include_self=False)
-
 @socketio.on("message")
 def message(data):
     room = session.get("room")
@@ -992,7 +991,6 @@ def message(data):
         "message": data["data"],
         "reply_to": data.get("replyTo"),
         "read_by": [session.get("username")],  # Initialize with the sender
-        "timestamp": datetime.utcnow()
     }
     
     if "image" in data:
@@ -1011,14 +1009,11 @@ def message(data):
         {"$push": {"messages": content}}
     )
 
-    # Convert datetime to ISO format string before sending
-    content["timestamp"] = datetime_to_iso(content["timestamp"])
-
     send(content, to=room)
 
     # Send push notification to all users in the room except the sender
     sender_username = session.get('username')
-    room_users = rooms_collection.find_one({"_id": room}, {"users": 1})["users"]
+    room_users = room_data["users"]
     
     for username in room_users:
         if username != sender_username:
@@ -1050,9 +1045,6 @@ def mark_messages_read(data):
             "$addToSet": {
                 "messages.$[elem].read_by": username
             },
-            "$set": {
-                "messages.$[elem].last_read": current_time
-            }
         },
         array_filters=[{"elem.id": {"$in": data["message_ids"]}}]
     )
@@ -1061,7 +1053,6 @@ def mark_messages_read(data):
     socketio.emit("messages_read", {
         "reader": username,
         "message_ids": data["message_ids"],
-        "last_read": datetime_to_iso(current_time)
     }, room=room)
 
 @socketio.on("edit_message")
@@ -1147,6 +1138,13 @@ def delete_message(data):
     
     if result.modified_count:
         socketio.emit("delete_message", {"messageId": data["messageId"]}, room=room)
+        
+@socketio.on("typing")
+def handle_typing(data):
+    room = session.get("room")
+    if room:
+        name = session.get("name")
+        socketio.emit("typing", {"name": name, "isTyping": data.get("isTyping", False)}, room=room, include_self=False)
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
