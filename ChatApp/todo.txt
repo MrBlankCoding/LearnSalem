@@ -2,16 +2,21 @@
 5. Make it so you can themify the whole thing
 7. Make the reply button work -> JS is overriding HTML
 10. Add profile photos 
-15. push notfications
+15. push notifications
 20. Make a heartbeat system for users being online
 21. Add support for room names
-23. Scale images, + make images be able to send before you reload the page
+23. Scale images, + make images able to send before you reload the page
 26. Make a homepage lmao
-27. Message sounds 
-29. Remove odd gap between messages 
-30. Remove gap between text and message boarders
+29. Remove the odd gap between messages 
+30. Remove the gap between text and message boarders
 31. Make it a PWA
 33. Add kick from room
 35. Make messages a nicer color
-36. Remove un used fields for messages
-38. Make the favcoin have a notfications icon change
+36. Remove unused fields for messages
+38. Make the favicon have a notifications icon change
+39. Fix the members of a room dropdown
+40. Fix the contrast of the other user's messages
+41. Fix the room members' counter
+42. Make images delete after they have been opened -> Snapchat model. 
+43. Make it so messages can not appear under the nav bar on mobile 
+44. Add pagination for messages. 
