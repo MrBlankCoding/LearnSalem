@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8" />
+    <title>Channel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Channel is a simple modern chatroom based messaging app">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        indigo: {
+                            50: '#EEF2FF',
+                            500: '#6366F1',
+                            600: '#4F46E5',
+                            700: '#4338CA',
+                        },
+                        purple: {
+                            50: '#F5F3FF',
+                            500: '#8B5CF6',
+                            600: '#7C3AED',
+                        },
+                        pink: {
+                            50: '#FDF2F8',
+                        },
+                        gray: {
+                            50: '#F9FAFB',
+                            100: '#F3F4F6',
+                            200: '#E5E7EB',
+                            300: '#D1D5DB',
+                            500: '#6B7280',
+                            600: '#4B5563',
+                            700: '#374151',
+                            800: '#1F2937',
+                            900: '#111827',
+                        },
+                    },
+                    height: {
+                        screen: '100vh',
+                        '[100dvh]': '100dvh',
+                    },
+                },
+            },
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+        }
+    </style>
+</head>
+
+<body class="h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
+
+    <div class="content">
+        {% block content %} 
+        {% endblock %}
+    </div>
+
+    <!-- Dark mode script based on localStorage -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const html = document.documentElement;
+
+            // Check if dark mode was enabled in localStorage
+            if (localStorage.getItem('darkMode') === 'dark') {
+                html.classList.add('dark');
+            }
+        });
+    </script>
+
+    <!-- Firebase SDK (Using v10) -->
+    <script type="module">
+        // Import Firebase services as modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
+        import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCjJzQGCZ0niMD5tek_0gLSBGJXxW0VLKA",
+            authDomain: "channelchat-7d679.firebaseapp.com",
+            projectId: "channelchat-7d679",
+            storageBucket: "channelchat-7d679.appspot.com",
+            messagingSenderId: "822894243205",
+            appId: "1:822894243205:web:e129bcac94601e183e68ec",
+            measurementId: "G-PL15EEFQDE"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const messaging = getMessaging(app);
+
+        // Request permission and get FCM token
+        async function requestNotificationPermission() {
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    const token = await getToken(messaging, { vapidKey: 'BFF7GvyyBdEKRjSCNeDKIB0U85iGp7-wUm-mtV7GmBgq5FHqsQmcxTWe9QElWuwhdZEZ6xhGMcCRSreeAq-XSlE' });
+                    console.log('FCM Token:', token);
+                    // Send this token to your server
+                    await fetch('/register-fcm-token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ token }),
+                    });
+                }
+            } catch (error) {
+                console.error('Error getting FCM token:', error);
+            }
+        }
+
+        requestNotificationPermission();
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                .then(function(registration) {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                }).catch(function(err) {
+                    console.log('Service Worker registration failed:', err);
+                });
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+</body>
+</html>
