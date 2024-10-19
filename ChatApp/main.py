@@ -510,9 +510,6 @@ def remove_friend(username):
 
 @app.route("/delete_room/<room_code>")
 def delete_room(room_code):
-    if "username" not in session:
-        return redirect(url_for("login"))
-        
     username = current_user.username
     room_data = rooms_collection.find_one({"_id": room_code})
     
@@ -540,9 +537,6 @@ def delete_room(room_code):
 
 @app.route("/invite_to_room/<username>")
 def invite_to_room(username):
-    if "username" not in session:
-        return redirect(url_for("login"))
-    
     current_room = session.get("room")
     
     if not current_room:
@@ -689,9 +683,6 @@ def get_room_data(room_code):
 @app.route("/join_friend_room/<friend_username>")
 @login_required
 def join_friend_room(friend_username):
-    if "username" not in session:
-        return redirect(url_for("login"))
-    
     username = current_user.username
     user_data = users_collection.find_one({"username": username})
     
@@ -814,9 +805,6 @@ def home():
 @app.route("/room/<code>")
 @login_required
 def room(code):
-    if "username" not in session:
-        return redirect(url_for("login"))
-        
     username = current_user.username
     
     # If no code provided in URL, try to get it from session
