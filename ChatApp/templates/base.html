@@ -136,6 +136,17 @@
                     console.log('Service Worker registration failed:', err);
                 });
         }
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the username from localStorage
+            const username = localStorage.getItem('username');
+            console.log(username);
+            
+            // If the username exists, load the profile photo
+            if (username) {
+                const profilePhotoElement = document.getElementById('profile-photo');
+                profilePhotoElement.src = `/profile_photos/${username}`;
+            }
+        });
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
 </body>

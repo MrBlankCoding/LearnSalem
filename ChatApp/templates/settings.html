@@ -22,32 +22,28 @@
             <!-- Tab Content -->
             <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <!-- Profile Photo Tab -->
-            <div id="profile" class="tab-content active">
-                <div class="space-y-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Profile Photo</label>
-                <div class="flex items-center space-x-6">
-                    <div class="shrink-0">
-                        <img class="h-16 w-16 object-cover rounded-full" 
-                            src="{{ url_for('profile_photo', username=session.username) }}" 
-                            alt="Profile photo" 
-                            onerror="this.onerror=null; this.src='{{ url_for('default_profile') }}';">
-                    </div>
-                    <div class="flex-1">
-                        <input type="file" 
-                            name="profile_photo" 
-                            accept="image/*"
-                            class="block w-full text-sm text-gray-500 dark:text-gray-400
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-full file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-indigo-50 file:text-indigo-700
-                            dark:file:bg-gray-700 dark:file:text-indigo-300
-                            hover:file:bg-indigo-100 dark:hover:file:bg-gray-600">
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">PNG, JPG, GIF up to 5MB</p>
-                    </div>
-                </div>
-                </div>
-            </div>
+            <div class="flex items-center space-x-6">
+               <div class="shrink-0">
+                   <img class="h-16 w-16 object-cover rounded-full" 
+                        id="profile-photo" 
+                        alt="Profile photo" 
+                        onerror="this.onerror=null; this.src='{{ url_for('default_profile') }}';">
+               </div>
+               <div class="flex-1">
+                   <input type="file" 
+                          name="profile_photo" 
+                          accept="image/*"
+                          class="block w-full text-sm text-gray-500 dark:text-gray-400
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-full file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-indigo-50 file:text-indigo-700
+                          dark:file:bg-gray-700 dark:file:text-indigo-300
+                          hover:file:bg-indigo-100 dark:hover:file:bg-gray-600">
+                   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">PNG, JPG, GIF up to 5MB</p>
+               </div>
+           </div>
+           
                <!-- New Username Tab -->
                <div id="username" class="tab-content">
                   <div>
@@ -141,6 +137,16 @@
          html.classList.add('dark');
       }
    });
+   document.addEventListener('DOMContentLoaded', function() {
+      // Get the username from localStorage
+      const username = localStorage.getItem('username');
+      
+      // If the username exists, load the profile photo
+      if (username) {
+          const profilePhotoElement = document.getElementById('profile-photo');
+          profilePhotoElement.src = `/profile_photos/${username}`;
+      }
+  });
 </script>
 <style>
    .tab {

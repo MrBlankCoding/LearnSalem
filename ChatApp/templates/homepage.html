@@ -9,9 +9,9 @@
          <div class="flex items-center space-x-4">
             <div class="h-16 w-16 flex items-center justify-center shadow-md">
                <img class="h-16 w-16 object-cover rounded-full" 
-                  src="{{ url_for('profile_photo', username=session.username) }}" 
-                  alt="Current profile photo" 
-                  onerror="this.onerror=null; this.src='{{ url_for('default_profile') }}';">
+               id="profile-photo" 
+               alt="Profile photo" 
+               onerror="this.onerror=null; this.src='{{ url_for('default_profile') }}';">
             </div>
             <div>
                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-purple-400">

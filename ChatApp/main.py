@@ -157,18 +157,21 @@ def save_profile_photo(file, username):
     
 @app.route('/profile_photos/<username>')
 def profile_photo(username):
-    # Construct the filename based on the username
+    # Check if the user has uploaded a profile photo by looking for files matching their username
     for ext in app.config['ALLOWED_IMAGE_TYPES']:
         filename = f"profile_{username}.{ext}"
         filepath = os.path.join(app.config['PROFILE_UPLOAD_FOLDER'], filename)
         if os.path.exists(filepath):
             return send_from_directory(app.config['PROFILE_UPLOAD_FOLDER'], filename)
     
-    return redirect(url_for('default_profile'))  # Redirect to the default profile photo
+    # If no profile photo is found, return the default profile image
+    return redirect(url_for('default_profile'))
 
 @app.route('/default-profile')
 def default_profile():
+    # Serve the default profile image if no custom image exists
     return send_from_directory('static/images', 'default-profile.png')
+
 
 def generate_unique_code(length):
     while True:
