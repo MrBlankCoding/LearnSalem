@@ -7,7 +7,10 @@
     <meta name="description" content="Channel is a simple modern chatroom based messaging app">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="manifest" href="/static/manifest.json">
-    <link rel="apple-touch-icon" href="/img/icons/icon-96x96.png">
+    <link rel="apple-touch-icon" href="/img/icons/icon-96x96.png" sizes="96x96">
+    <link rel="apple-touch-icon" href="/img/icons/icon-152x152.png" sizes="152x152">
+    <link rel="apple-touch-icon" href="/img/icons/icon-192x192.png" sizes="192x192">
+    <link rel="apple-touch-icon" href="/img/icons/icon-512x512.png" sizes="512x512">
     <meta name="apple-mobile-web-app-status-bar" content="#4E46DC">
     <meta name="theme-color" content="#4E46DC">
     
@@ -69,14 +72,17 @@
         {% endblock %}
     </div>
 
-    <!-- Dark mode script based on localStorage -->
+    <!-- Dark mode script based on localStorage and system preference -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const html = document.documentElement;
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-            // Check if dark mode was enabled in localStorage
-            if (localStorage.getItem('darkMode') === 'dark') {
+            // Check if dark mode was enabled in localStorage or fallback to system preference
+            if (localStorage.getItem('darkMode') === 'dark' || (!localStorage.getItem('darkMode') && prefersDark)) {
                 html.classList.add('dark');
+            } else {
+                html.classList.remove('dark');
             }
         });
     </script>
@@ -121,6 +127,8 @@
                         },
                         body: JSON.stringify({ token }),
                     });
+                } else {
+                    console.warn('Notifications permission was denied.');
                 }
             } catch (error) {
                 console.error('Error getting FCM token:', error);
@@ -132,26 +140,34 @@
 
     <!-- Service Worker Registration -->
     <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/firebase-messaging-sw.js')
-                .then(function(registration) {
-                    console.log('Service Worker registered with scope:', registration.scope);
-                }).catch(function(err) {
-                    console.log('Service Worker registration failed:', err);
-                });
-        }
         document.addEventListener('DOMContentLoaded', function() {
-            // Get the username from localStorage
-            const username = localStorage.getItem('username');
-            console.log(username);
-            
-            // If the username exists, load the profile photo
-            if (username) {
-                const profilePhotoElement = document.getElementById('profile-photo');
-                profilePhotoElement.src = `/profile_photos/${username}`;
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                    .then(function(registration) {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    }).catch(function(err) {
+                        console.log('Service Worker registration failed:', err);
+                    });
             }
         });
     </script>
+
+    <!-- Profile Photo Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const username = localStorage.getItem('username');
+            const profilePhotoElement = document.getElementById('profile-photo');
+            
+            if (username && profilePhotoElement) {
+                profilePhotoElement.src = `/profile_photos/${username}`;
+                profilePhotoElement.onerror = function() {
+                    profilePhotoElement.src = '/static/images/default-profile.png'; // fallback image
+                };
+            }
+        });
+    </script>
+
+    <!-- Heartbeat Logic -->
     <script>
         let heartbeatInterval;
 

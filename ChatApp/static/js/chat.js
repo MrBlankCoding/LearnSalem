@@ -5,7 +5,6 @@ const messageInput = document.getElementById("message");
 const imageUpload = document.getElementById('image-upload');
 const leaveRoomButton = document.getElementById("leave-room-btn");
 const username = document.getElementById("username").value;
-const NOTIFICATION_TIMEOUT = 5000; // 5 seconds
 const unreadMessages = new Set();
 const originalTitle = document.title;
 
@@ -15,8 +14,6 @@ let isUserListVisible = false;
 let typingTimeout;
 let currentUser = null;
 let typingUsers = new Set();
-let notificationPermission = 'default';
-let notificationTimeout;
 let lastReadMessageId = null;
 let isTabActive = true;
 let unreadCount = 0;
@@ -28,7 +25,6 @@ let oldestMessageId = null;
 const LS_KEYS = {
   UNREAD_COUNT: 'unreadCount',
   LAST_READ_MESSAGE_ID: 'lastReadMessageId',
-  NOTIFICATION_PERMISSION: 'notificationPermission',
   USERNAME: 'username',
 };
 
@@ -71,7 +67,6 @@ const handleVisibilityChange = () => {
 const loadFromLocalStorage = () => {
   unreadCount = parseInt(localStorage.getItem(LS_KEYS.UNREAD_COUNT) || '0');
   lastReadMessageId = localStorage.getItem(LS_KEYS.LAST_READ_MESSAGE_ID);
-  notificationPermission = localStorage.getItem(LS_KEYS.NOTIFICATION_PERMISSION) || 'default';
   currentUser = localStorage.getItem(LS_KEYS.USERNAME) || username;
 
   updatePageTitle();
@@ -81,7 +76,6 @@ const loadFromLocalStorage = () => {
 const saveToLocalStorage = () => {
   localStorage.setItem(LS_KEYS.UNREAD_COUNT, unreadCount.toString());
   localStorage.setItem(LS_KEYS.LAST_READ_MESSAGE_ID, lastReadMessageId);
-  localStorage.setItem(LS_KEYS.NOTIFICATION_PERMISSION, notificationPermission);
   localStorage.setItem(LS_KEYS.USERNAME, currentUser);
 };
 
@@ -343,10 +337,6 @@ const leaveRoom = () => {
   window.location.href = homeUrl;
 };
 
-socketio.on("message_rejected", (data) => {
-  alert(`Your message was not sent: ${data.reason}`);
-});
-
 // Event listeners
 messageInput.addEventListener("keyup", (event) => {
   if (event.key === "Enter") {
@@ -390,37 +380,6 @@ const handleReaction = (emoji, reactionsContainer) => {
 
 leaveRoomButton.addEventListener("click", leaveRoom);
 
-const requestNotificationPermission = () => {
-  if (!("Notification" in window)) {
-    console.log("This browser does not support desktop notification");
-  } else {
-    Notification.requestPermission().then((permission) => {
-      notificationPermission = permission;
-      updateLocalStorage(LS_KEYS.NOTIFICATION_PERMISSION, notificationPermission);
-      if (permission === "granted") {
-        console.log("Notification permission granted");
-      }
-    });
-  }
-};
-
-const showNotification = (title, body) => {
-  if (notificationPermission === 'granted' && !isTabActive) {
-    const notification = new Notification(title, {
-      body: body,
-      icon: '/static/images/chat-icon.png'
-    });
-
-    clearTimeout(notificationTimeout);
-    notificationTimeout = setTimeout(() => notification.close(), NOTIFICATION_TIMEOUT);
-
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
-    };
-  }
-};
-
 const markMessagesAsRead = () => {
   if (isTabActive && unreadMessages.size > 0) {
     const messageIds = Array.from(unreadMessages);
@@ -450,7 +409,6 @@ socketio.on("message", (data) => {
     } else {
       unreadCount++;
       updatePageTitle();
-      showNotification(`New message from ${data.name}`, data.message || "New image message");
     }
   }
 
@@ -644,7 +602,6 @@ socketio.on("typing", (data) => {
 socketio.on("connect", () => {
   console.log("Connected to server");
   currentUser = username;
-  requestNotificationPermission();
 });
 
 socketio.on("disconnect", () => {
