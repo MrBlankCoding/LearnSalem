@@ -106,6 +106,30 @@ def send_push_notification(token, content):
     except Exception as e:
         print('Error sending message:', e)
         
+@app.route("/test-notification", methods=["POST"])
+def test_notification():
+    data = request.get_json()
+    token = data.get("token")
+
+    if not token:
+        return jsonify({"error": "FCM token is required"}), 400
+
+    # Create a simple push notification
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title="Test Notification",
+            body="This is a test push notification."
+        ),
+        token=token
+    )
+
+    try:
+        # Send the message
+        response = messaging.send(message)
+        return jsonify({"success": True, "response": response}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+        
 @app.route('/firebase-messaging-sw.js')
 def serve_sw():
     root_dir = os.path.abspath(os.getcwd())  # Gets the current working directory (project root)
@@ -1105,7 +1129,12 @@ def message(data):
         if username != sender_username:
             user_data = users_collection.find_one({"username": username}, {"fcm_token": 1})
             if user_data and "fcm_token" in user_data:
+                print(f"Sending push notification to {username} with token: {user_data['fcm_token']}")
                 send_push_notification(user_data["fcm_token"], content)
+                print("Sent Push Notif")
+            else:
+                print(f"FCM token not found for {username}")
+
                 
 @app.route("/get_unread_messages")
 @login_required
