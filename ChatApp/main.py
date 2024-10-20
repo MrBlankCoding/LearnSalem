@@ -558,9 +558,11 @@ def accept_friend(username):
 @app.route("/decline_friend/<username>")
 @login_required
 def decline_friend(username):
-    
+    # Assuming current_user has a 'username' attribute
+    current_username = current_user.username
+
     result = users_collection.update_one(
-        {"username": current_user},
+        {"username": current_username},  # Use the actual username, not the LocalProxy object
         {"$pull": {"friend_requests": username}}
     )
     
@@ -574,11 +576,12 @@ def decline_friend(username):
 @app.route("/remove_friend/<username>", methods=["POST"])
 @login_required
 def remove_friend(username):
+    current_username = current_user.username  # Access the username of the current_user object
     
     # Remove from both users' friend lists atomically
     result = users_collection.update_one(
         {
-            "username": current_user,
+            "username": current_username,  # Use the extracted username
             "friends": username
         },
         {"$pull": {"friends": username}}
@@ -587,7 +590,7 @@ def remove_friend(username):
     if result.modified_count:
         users_collection.update_one(
             {"username": username},
-            {"$pull": {"friends": current_user}}
+            {"$pull": {"friends": current_username}}  # Use the extracted username here as well
         )
         return jsonify({"success": True})
     

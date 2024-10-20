@@ -200,9 +200,9 @@
          <div class="flex items-center justify-between p-4">
             <div class="flex items-center space-x-4">
                <div class="relative">
-                  <div class="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium shadow-sm">
-                     {{ friend.username[0]|upper }}
-                  </div>
+                  <img src="{{ url_for('profile_photo', username=friend.username) }}" 
+                       alt="{{ friend.username }}" 
+                       class="h-10 w-10 rounded-full shadow-sm object-cover bg-gradient-to-r from-blue-500 to-purple-500">
                   <div class="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-white dark:border-gray-800 shadow-sm
                      {{ 'bg-green-400 online-pulse' if friend.online else 'bg-gray-400' }}">
                   </div>
@@ -269,9 +269,7 @@
       {% for request in friend_requests %}
       <div class="flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-900 rounded-xl border border-indigo-200 dark:border-indigo-700 shadow-sm">
          <div class="flex items-center space-x-4">
-            <div class="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium shadow-sm">
-               {{ request[0]|upper }}
-            </div>
+            <img class="h-12 w-12 rounded-full shadow-sm" src="{{ url_for('profile_photo', username=request) }}" alt="{{ request }}'s profile photo">
             <span class="font-medium text-gray-900 dark:text-white">{{ request }}</span>
          </div>
          <div class="flex space-x-3">
