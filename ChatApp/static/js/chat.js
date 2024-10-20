@@ -7,6 +7,7 @@ const leaveRoomButton = document.getElementById("leave-room-btn");
 const username = document.getElementById("username").value;
 const NOTIFICATION_TIMEOUT = 5000; // 5 seconds
 const unreadMessages = new Set();
+const originalTitle = document.title;
 
 // State variables
 let replyingTo = null;
@@ -19,7 +20,9 @@ let notificationTimeout;
 let lastReadMessageId = null;
 let isTabActive = true;
 let unreadCount = 0;
-const originalTitle = document.title;
+let hasMoreMessages = false;
+let isLoadingMessages = false;
+let oldestMessageId = null;
 
 //Local Storage
 const LS_KEYS = {
@@ -205,7 +208,9 @@ const addMessageToDOM = (element) => {
     messages.appendChild(messageContainer);
   }
   
+  // Always append new messages to the end of the container
   messageContainer.appendChild(element);
+  
   messages.scrollTop = messages.scrollHeight;
 
   const observer = new IntersectionObserver((entries) => {
@@ -479,7 +484,6 @@ socketio.on("messages_read", (data) => {
 });
 
 socketio.on("chat_history", (data) => {
-  messages.scrollTop = messages.scrollHeight;
   const messageContainer = document.createElement('div');
   messageContainer.className = 'flex flex-col space-y-4 p-4';
   
@@ -497,16 +501,119 @@ socketio.on("chat_history", (data) => {
       unreadMessages.add(message.id);
     }
 
-    // Only highlight the current user's messages that have been read by others
     if (message.name === currentUser && message.read_by.some(reader => reader !== currentUser)) {
-      messageElement.querySelector('.message-content').parentElement.style.backgroundColor = '#4E46DC'; // Purple color
+      messageElement.querySelector('.message-content').parentElement.style.backgroundColor = '#4E46DC';
     }
   });
   
   messages.innerHTML = '';
   messages.appendChild(messageContainer);
+  
+  if (data.messages.length > 0) {
+    oldestMessageId = data.messages[0].id;
+  }
+  
+  hasMoreMessages = data.has_more;
+  updateLoadMoreButton();
+  
   markMessagesAsRead();
+  
+  // Set the scroll position to the bottom immediately after rendering messages
+  messages.scrollTop = messages.scrollHeight;
 });
+
+socketio.on("more_messages", (data) => {
+  const oldScrollHeight = messages.scrollHeight;
+  let messageContainer = messages.querySelector('.flex.flex-col');
+  
+  // If the message container doesn't exist, create it
+  if (!messageContainer) {
+    messageContainer = document.createElement('div');
+    messageContainer.className = 'flex flex-col space-y-4 p-4';
+    messages.appendChild(messageContainer);
+  }
+  
+  const loadMoreBtn = document.getElementById('load-more-btn');
+  
+  // Create a document fragment to hold the new messages
+  const fragment = document.createDocumentFragment();
+  
+  data.messages.forEach((message) => {
+    const messageElement = createMessageElement(
+      message.name, 
+      message.message, 
+      message.image, 
+      message.id, 
+      message.reply_to
+    );
+    fragment.appendChild(messageElement);
+
+    if (message.name !== currentUser && !message.read_by.includes(currentUser)) {
+      unreadMessages.add(message.id);
+    }
+
+    if (message.name === currentUser && message.read_by.some(reader => reader !== currentUser)) {
+      messageElement.querySelector('.message-content').parentElement.style.backgroundColor = '#4E46DC';
+    }
+  });
+  
+  // Insert the new messages
+  if (loadMoreBtn) {
+    loadMoreBtn.after(fragment);
+  } else {
+    messageContainer.insertBefore(fragment, messageContainer.firstChild);
+  }
+  
+  if (data.messages.length > 0) {
+    oldestMessageId = data.messages[0].id;
+  }
+  
+  hasMoreMessages = data.has_more;
+  updateLoadMoreButton();
+  
+  isLoadingMessages = false;
+  
+  // Adjust scroll position to maintain the user's current view
+  const newScrollHeight = messages.scrollHeight;
+  messages.scrollTop = newScrollHeight - oldScrollHeight + messages.scrollTop;
+});
+
+function createLoadMoreButton() {
+  const button = document.createElement('button');
+  button.id = 'load-more-btn';
+  button.className = 'bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4 mb-4 w-full';
+  button.textContent = 'Load More Messages';
+  button.addEventListener('click', loadMoreMessages);
+  return button;
+}
+
+function updateLoadMoreButton() {
+  let messageContainer = messages.querySelector('.flex.flex-col');
+  if (!messageContainer) {
+    messageContainer = document.createElement('div');
+    messageContainer.className = 'flex flex-col space-y-4 p-4';
+    messages.appendChild(messageContainer);
+  }
+
+  let existingButton = document.getElementById('load-more-btn');
+  if (hasMoreMessages) {
+    if (!existingButton) {
+      existingButton = createLoadMoreButton();
+      messageContainer.insertBefore(existingButton, messageContainer.firstChild);
+    }
+  } else {
+    if (existingButton) {
+      existingButton.remove();
+    }
+  }
+}
+
+function loadMoreMessages() {
+  if (isLoadingMessages || !hasMoreMessages) return;
+  
+  isLoadingMessages = true;
+  socketio.emit("load_more_messages", { last_message_id: oldestMessageId });
+}
 
 socketio.on("edit_message", (data) => {
   const messageElement = document.querySelector(`[data-message-id="${data.messageId}"]`);
@@ -557,42 +664,6 @@ document.querySelector('.user-toggle-btn').addEventListener('click', () => {
   }
   
   isUserListVisible = !isUserListVisible;
-});
-
-socketio.on("update_users", (data) => {
-  const userList = document.getElementById("user-list");
-  
-  userList.innerHTML = `
-    <span class="user-list-label text-white font-semibold hidden md:inline">Users in room:</span>
-  `;
-  
-  data.users.forEach(user => {
-    const userBadge = document.createElement("div");
-    userBadge.className = "user-badge flex items-center gap-1.5 bg-white px-3 py-1 rounded-full shadow-sm group hover:bg-gray-100 transition";
-    
-    const userNameSpan = document.createElement("span");
-    userNameSpan.className = "truncate max-w-[100px] text-gray-800";
-    userNameSpan.textContent = user.username;
-
-    const statusIndicator = document.createElement("span");
-    if (user.online) {
-      statusIndicator.innerHTML = '<span class="text-green-400">🟢</span>';
-    } else {
-      statusIndicator.innerHTML = '<span class="text-gray-400">⚫</span>';
-    }
-
-    if (user.isFriend) {
-      const friendStar = document.createElement("span");
-      friendStar.className = "friend-star text-yellow-300";
-      friendStar.textContent = '★';
-      userBadge.appendChild(friendStar);
-    }
-
-    userBadge.appendChild(userNameSpan);
-    userBadge.appendChild(statusIndicator);
-
-    userList.appendChild(userBadge);
-  });
 });
 
 // Call loadFromLocalStorage when the page loads

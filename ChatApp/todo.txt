@@ -1,9 +1,7 @@
 15. push notifications
-26. Make a homepage lmao
-31. Make it a PWA
 42. Make images delete after they have been opened -> Snapchat model. 
-43. Make it so messages can not appear under the nav bar on mobile 
 44. Add pagination for messages. 
-47. Make rooms menu scale propperly on mobile
 49. GIF API
 50. Message reactions -> fix
+51. Make it so profile photos work on mobile
+51. Make it so you can send images on mobile

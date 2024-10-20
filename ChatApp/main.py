@@ -984,17 +984,55 @@ def connect():
     
     socketio.emit("update_users", {"users": user_list}, room=room)
     
+    # Load only the most recent 20 messages
+    messages = room_data.get("messages", [])[-20:]
     messages_with_read_status = []
-    for msg in room_data.get("messages", []):
-        msg_copy = msg.copy()  # Create a copy to avoid modifying the original
+    for msg in messages:
+        msg_copy = msg.copy()
         msg_copy["read_by"] = msg_copy.get("read_by", [])
-        # Convert all potential datetime fields to ISO format
         for key, value in msg_copy.items():
             if isinstance(value, datetime):
                 msg_copy[key] = datetime_to_iso(value)
         messages_with_read_status.append(msg_copy)
 
-    socketio.emit("chat_history", {"messages": messages_with_read_status}, room=request.sid)
+    socketio.emit("chat_history", {"messages": messages_with_read_status, "has_more": len(messages) < len(room_data.get("messages", []))}, room=request.sid)
+
+@socketio.on("load_more_messages")
+def load_more_messages(data):
+    room = session.get("room")
+    last_message_id = data.get("last_message_id")
+    
+    room_data = rooms_collection.find_one({"_id": room})
+    if not room_data:
+        return
+    
+    all_messages = room_data.get("messages", [])
+    
+    if not last_message_id:
+        return
+    
+    last_message_index = next((i for i, msg in enumerate(all_messages) if msg["id"] == last_message_id), None)
+    
+    if last_message_index is None:
+        return
+    
+    # Load 20 more messages before the last loaded message
+    start_index = max(0, last_message_index - 20)
+    messages_to_send = all_messages[start_index:last_message_index]
+    
+    messages_with_read_status = []
+    for msg in messages_to_send:
+        msg_copy = msg.copy()
+        msg_copy["read_by"] = msg_copy.get("read_by", [])
+        for key, value in msg_copy.items():
+            if isinstance(value, datetime):
+                msg_copy[key] = datetime_to_iso(value)
+        messages_with_read_status.append(msg_copy)
+    
+    socketio.emit("more_messages", {
+        "messages": messages_with_read_status,
+        "has_more": start_index > 0
+    }, room=request.sid)
 
 @socketio.on("disconnect")
 def disconnect():
