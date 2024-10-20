@@ -112,7 +112,7 @@ const createMessageElement = (name, msg, image, messageId, replyTo) => {
   }
 
   const messageBubble = document.createElement("div");
-  messageBubble.className = `group relative p-3 rounded-2xl shadow-sm max-w-[85%] md:max-w-[70%] transition-shadow duration-200 ${isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'}`;
+  messageBubble.className = `group relative p-3 rounded-2xl shadow-sm max-w-[85%] md:max-w-[70%] transition-shadow duration-200 ${isCurrentUser ? 'bg-blue-700 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'}`;
   messageBubble.dataset.messageId = messageId;
 
   // Message content
@@ -227,7 +227,7 @@ const scrollToMessage = (messageId) => {
   const targetMessage = document.querySelector(`[data-message-id="${messageId}"]`);
   if (targetMessage) {
     targetMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    targetMessage.style.backgroundColor = 'rgba(74, 144, 226, 0.1)';
+    targetMessage.style.backgroundColor = 'rgba(78, 70, 220, 0.1)';
     setTimeout(() => {
       targetMessage.style.backgroundColor = '';
     }, 2000);
@@ -473,7 +473,7 @@ socketio.on("messages_read", (data) => {
   message_ids.forEach(id => {
     const messageElement = document.querySelector(`[data-message-id="${id}"]`);
     if (messageElement && reader !== currentUser) {
-      messageElement.style.backgroundColor = '#c084fc'; // Purple color
+      messageElement.style.backgroundColor = '#4E46DC'; // Purple color
     }
   });
 });
@@ -499,7 +499,7 @@ socketio.on("chat_history", (data) => {
 
     // Only highlight the current user's messages that have been read by others
     if (message.name === currentUser && message.read_by.some(reader => reader !== currentUser)) {
-      messageElement.querySelector('.message-content').parentElement.style.backgroundColor = '#c084fc'; // Purple color
+      messageElement.querySelector('.message-content').parentElement.style.backgroundColor = '#4E46DC'; // Purple color
     }
   });
   
