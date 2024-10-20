@@ -63,7 +63,13 @@
   <div id="messages" class="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
     <div class="flex flex-col space-y-4 p-4">
       {% for msg in messages %}
-        <div class="message flex {% if msg.name == session.get('name') %}justify-end{% else %}justify-start{% endif %}">
+        <div class="message flex {% if msg.name == session.get('name') %}justify-end{% else %}justify-start{% endif %} items-start space-x-2">
+          {% if msg.name != session.get('name') %}
+            <div class="flex-shrink-0">
+              <img src="/profile_photos/{{ msg.name }}" alt="{{ msg.name }}'s profile" class="w-8 h-8 rounded-full object-cover" onerror="this.src='/static/images/default-profile.png'">
+            </div>
+          {% endif %}
+          
           <div class="group relative p-3 rounded-2xl shadow-sm max-w-[85%] md:max-w-[70%] {% if msg.name == session.get('name') %}bg-indigo-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white{% endif %}" data-message-id="{{ msg.id }}">
             <p class="message-content">{{ msg.message }}</p>
             
@@ -74,7 +80,7 @@
             {% endif %}
             
             {% if msg.image %}
-              <img src="{{ msg.image }}" class="mt-2 max-w-full rounded-lg">
+              <img src="{{ msg.image }}" alt="Uploaded image" class="mt-2 max-w-full rounded-lg">
             {% endif %}
             
             <div class="absolute bottom-full left-0 mb-2 hidden group-hover:flex items-center space-x-2 bg-white dark:bg-gray-800 shadow-lg rounded-lg px-2 py-1">
@@ -89,7 +95,7 @@
         </div>
       {% endfor %}
     </div>
-  </div>
+  </div>  
 
   <!-- Message Input -->
   <div class="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">

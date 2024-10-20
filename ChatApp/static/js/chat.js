@@ -93,7 +93,7 @@ const typingIndicator = createTypingIndicator();
 
 const createMessageElement = (name, msg, image, messageId, replyTo) => {
   const isCurrentUser = name === currentUser;
-  
+
   const element = document.createElement("div");
   element.className = `message flex ${isCurrentUser ? 'justify-end' : 'justify-start'} items-start space-x-2`;
 
@@ -112,7 +112,7 @@ const createMessageElement = (name, msg, image, messageId, replyTo) => {
   }
 
   const messageBubble = document.createElement("div");
-  messageBubble.className = `group relative p-3 rounded-lg shadow-md max-w-[85%] md:max-w-[70%] hover:shadow-lg transition-shadow duration-200 ${isCurrentUser ? 'bg-blue-600' : 'bg-gray-100'} ${isCurrentUser ? 'text-white' : 'text-gray-800'}`;
+  messageBubble.className = `group relative p-3 rounded-2xl shadow-sm max-w-[85%] md:max-w-[70%] transition-shadow duration-200 ${isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'}`;
   messageBubble.dataset.messageId = messageId;
 
   // Message content
@@ -124,7 +124,7 @@ const createMessageElement = (name, msg, image, messageId, replyTo) => {
   // Reply information
   if (replyTo) {
     const replyInfo = document.createElement("div");
-    replyInfo.className = `reply-info mt-2 text-sm ${isCurrentUser ? 'text-white/75' : 'text-gray-500'} pl-3 border-l-2 border-current`;
+    replyInfo.className = `reply-info mt-2 text-sm ${isCurrentUser ? 'text-white/75' : 'text-gray-500 dark:text-gray-400'} pl-3 border-l-2 border-current`;
     replyInfo.dataset.replyTo = replyTo.id;
     replyInfo.innerHTML = `Replying to: <span class="replied-message italic">${replyTo.message}</span>`;
     messageBubble.appendChild(replyInfo);
@@ -154,7 +154,7 @@ const createMessageElement = (name, msg, image, messageId, replyTo) => {
 const createActionsMenu = (isCurrentUser) => {
   const actionsMenu = document.createElement("div");
   actionsMenu.className = `actions-menu opacity-0 group-hover:opacity-100 absolute -top-8 ${isCurrentUser ? 'right-0' : 'left-0'} 
-    flex items-center space-x-2 bg-white rounded-lg shadow-lg px-2 py-1 transition-opacity duration-200 z-10`;
+    flex items-center space-x-2 bg-white dark:bg-gray-800 shadow-lg rounded-lg px-2 py-1 transition-opacity duration-200 z-10`;
 
   const actions = [
     { title: "Reply", icon: "M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" },
@@ -165,10 +165,10 @@ const createActionsMenu = (isCurrentUser) => {
   actions.forEach(action => {
     if (!action.onlyCurrentUser || (action.onlyCurrentUser && isCurrentUser)) {
       const button = document.createElement("button");
-      button.className = `${action.title.toLowerCase()}-btn hover:bg-gray-100 p-1.5 rounded transition-colors duration-150`;
+      button.className = `${action.title.toLowerCase()}-btn hover:bg-gray-100 dark:hover:bg-gray-600 p-1.5 rounded transition-colors duration-150`;
       button.title = action.title;
       button.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ${action.color || 'text-gray-600'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ${action.color || 'text-gray-600 dark:text-gray-300'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${action.icon}" />
         </svg>
       `;
@@ -207,7 +207,7 @@ const addMessageToDOM = (element) => {
   
   messageContainer.appendChild(element);
   messages.scrollTop = messages.scrollHeight;
-  
+
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -497,7 +497,8 @@ socketio.on("chat_history", (data) => {
       unreadMessages.add(message.id);
     }
 
-    if (message.read_by.some(reader => reader !== currentUser && reader !== message.name)) {
+    // Only highlight the current user's messages that have been read by others
+    if (message.name === currentUser && message.read_by.some(reader => reader !== currentUser)) {
       messageElement.querySelector('.message-content').parentElement.style.backgroundColor = '#c084fc'; // Purple color
     }
   });
