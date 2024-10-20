@@ -148,6 +148,55 @@
             }
         });
     </script>
+    <script>
+        let heartbeatInterval;
+
+        function sendHeartbeat() {
+            fetch('/heartbeat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }).then(response => {
+                if (!response.ok) {
+                    console.error('Heartbeat failed');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function startHeartbeat() {
+            // Send an initial heartbeat when the page loads
+            sendHeartbeat();
+            console.log("Initial heartbeat sent!");
+        
+            // Send a heartbeat every 4 minutes
+            heartbeatInterval = setInterval(sendHeartbeat, 4 * 60 * 1000);
+        }
+        
+        function stopHeartbeat() {
+            clearInterval(heartbeatInterval);
+            fetch('/stop_heartbeat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }).then(response => {
+                if (!response.ok) {
+                    console.error('Failed to stop heartbeat');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        // Start the heartbeat when the page loads
+        startHeartbeat();
+        
+        // Listen for page unload events (including tab close)
+        window.addEventListener('beforeunload', stopHeartbeat);
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
 </body>
 </html>

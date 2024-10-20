@@ -17,6 +17,8 @@ from firebase_admin import credentials, messaging, initialize_app
 import firebase_admin
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from PIL import Image
 from pymongo import MongoClient
@@ -30,6 +32,7 @@ cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 
 app = Flask(__name__)
+scheduler = BackgroundScheduler()
 
 @app.context_processor
 def utility_processor():
@@ -53,6 +56,7 @@ db = client['chat_app_db']
 # Collections
 users_collection = db['users']
 rooms_collection = db['rooms']
+heartbeats_collection = db["heartbeats"]
 users_collection.create_index([("username", 1)], unique=True)
 users_collection.create_index([("friends", 1)])
 users_collection.create_index([("current_room", 1)])
@@ -154,6 +158,54 @@ def save_profile_photo(file, username):
     except Exception as e:
         flash("Error processing profile photo")
         return None
+    
+        
+# Set up the background scheduler
+def check_inactive_users():
+    threshold = datetime.utcnow() - timedelta(minutes=5)
+    inactive_users = heartbeats_collection.find({"last_heartbeat": {"$lt": threshold}})
+    
+    for user in inactive_users:
+        users_collection.update_one(
+            {"username": user["username"]},
+            {"$set": {"online": False}}
+        )
+        heartbeats_collection.delete_one({"_id": user["_id"]})
+
+def start_scheduler():
+    if not scheduler.running:
+        scheduler.add_job(func=check_inactive_users, trigger="interval", minutes=1)
+        scheduler.start()
+
+with app.app_context():
+    start_scheduler()
+
+@app.route("/heartbeat", methods=["POST"])
+@login_required
+def heartbeat():
+    username = current_user.username
+    heartbeats_collection.update_one(
+        {"username": username},
+        {"$set": {"last_heartbeat": datetime.utcnow()}},
+        upsert=True
+    )
+    users_collection.update_one(
+        {"username": username},
+        {"$set": {"online": True}}
+    )
+    return "", 204
+
+@app.route("/stop_heartbeat", methods=["POST"])
+@login_required
+def stop_heartbeat():
+    username = current_user.username
+    heartbeats_collection.delete_one({"username": username})
+    users_collection.update_one(
+        {"username": username},
+        {"$set": {"online": False}}
+    )
+    return "", 204
+
     
 @app.route('/profile_photos/<username>')
 def profile_photo(username):
@@ -288,10 +340,11 @@ def login():
         user = User(username)
         login_user(user, remember=True)
         
-        # Update user's online status
-        users_collection.update_one(
+        # Initialize heartbeat for the user
+        heartbeats_collection.update_one(
             {"username": username},
-            {"$set": {"online": True}}
+            {"$set": {"last_heartbeat": datetime.utcnow()}},
+            upsert=True
         )
 
         return redirect(url_for("home"))
@@ -301,9 +354,14 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    username = current_user.username
+    
+    # Remove heartbeat entry
+    heartbeats_collection.delete_one({"username": username})
+    
     # Update user's online status
     users_collection.update_one(
-        {"username": current_user.username},
+        {"username": username},
         {"$set": {"online": False}}
     )
     
@@ -1183,6 +1241,11 @@ def handle_typing(data):
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.teardown_appcontext
+def shutdown_scheduler(exception=None):
+    if scheduler.running:
+        scheduler.shutdown()
 
 if __name__ == "__main__":
     # Create upload folders if they don't exist

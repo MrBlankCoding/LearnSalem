@@ -1,14 +1,9 @@
 15. push notifications
-20. Make a heartbeat system for users being online
 26. Make a homepage lmao
 31. Make it a PWA
 42. Make images delete after they have been opened -> Snapchat model. 
 43. Make it so messages can not appear under the nav bar on mobile 
 44. Add pagination for messages. 
-46. If in a active channel, remove the check for if message is read
 47. Make rooms menu scale propperly on mobile
 49. GIF API
 50. Message reactions -> fix
-51. Make it so edit messages works
-52. Make it so you cant read your own messages
-53. Some users cant join rooms. idk
