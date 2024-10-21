@@ -719,8 +719,10 @@ def handle_room_operation(username, code, create, join):
     room = code
     if create:
         room = generate_unique_code(10)
+        room_name = request.form.get('room_name', 'Unnamed Room')  # Get custom name from form
         rooms_collection.insert_one({
             "_id": room,
+            "name": room_name,  # Add custom name
             "users": [username],
             "messages": [],
             "created_by": username,
@@ -926,6 +928,7 @@ def room(code):
         room_data.setdefault("users", [])
         room_data.setdefault("messages", [])
         room_data.setdefault("created_by", "")
+        room_data.setdefault("name", "Unnamed Room")  # Default name if not set
 
         # Add friend status to messages
         user_friends = set(user_data.get("friends", []))
@@ -956,16 +959,13 @@ def room(code):
         
         return render_template("room.html",
                             code=code,
+                            room_name=room_data["name"],  # Pass room name to template
                             messages=room_data["messages"],
                             users=user_list,
                             username=username,
                             created_by=room_data["created_by"],
                             friends=friends_data,
                             room_data=room_data)
-                            
-    except Exception as e:
-        flash("Error loading room data")
-        return redirect(url_for("home"))
                             
     except Exception as e:
         flash("Error loading room data")
@@ -1009,7 +1009,10 @@ def connect():
             "isFriend": user in user_data.get("friends", [])
         })
     
-    socketio.emit("update_users", {"users": user_list}, room=room)
+    socketio.emit("update_users", {
+        "users": user_list,
+        "room_name": room_data.get("name", "Unnamed Room")  # Send room name
+    }, room=room)
     
     # Load only the most recent 20 messages
     messages = room_data.get("messages", [])[-20:]
@@ -1022,7 +1025,40 @@ def connect():
                 msg_copy[key] = datetime_to_iso(value)
         messages_with_read_status.append(msg_copy)
 
-    socketio.emit("chat_history", {"messages": messages_with_read_status, "has_more": len(messages) < len(room_data.get("messages", []))}, room=request.sid)
+    socketio.emit("chat_history", {
+        "messages": messages_with_read_status,
+        "has_more": len(messages) < len(room_data.get("messages", [])),
+        "room_name": room_data.get("name", "Unnamed Room")  # Send room name
+    }, room=request.sid)
+    
+@app.route("/update_room_name/<room_code>", methods=['POST'])
+@login_required
+def update_room_name(room_code):
+    username = current_user.username
+    new_name = request.form.get('room_name', '').strip()
+    
+    if not new_name:
+        flash("Room name cannot be empty.")
+        return redirect(url_for("room", code=room_code))
+    
+    room_data = rooms_collection.find_one({"_id": room_code})
+    
+    if not room_data:
+        flash("Room does not exist.")
+        return redirect(url_for("home"))
+    
+    if room_data["created_by"] != username:
+        flash("You don't have permission to update this room's name.")
+        return redirect(url_for("room", code=room_code))
+    
+    # Update room name
+    rooms_collection.update_one(
+        {"_id": room_code},
+        {"$set": {"name": new_name}}
+    )
+    
+    flash("Room name updated successfully.")
+    return redirect(url_for("room", code=room_code))
 
 @socketio.on("load_more_messages")
 def load_more_messages(data):

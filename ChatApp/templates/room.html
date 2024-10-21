@@ -4,14 +4,17 @@
   <!-- Chat Room Header -->
   <div class="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
     <div class="room-header flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-gray-800 px-4 py-3 space-y-4 sm:space-y-0">
-      <div class="flex items-center space-x-3">
-        <h2 id="room-code" class="text-xl font-semibold text-gray-800 dark:text-white cursor-pointer hover:opacity-90 transition duration-200 flex items-center gap-2" onclick="copyRoomCode()">
-          <span id="room-code-text">{{ code }}</span>
-          <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
-          </svg>
-        </h2>
-        <span id="copy-feedback" class="text-sm bg-black/80 text-white px-2 py-1 rounded-md hidden">Copied!</span>
+      <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ room_data.name or 'Unnamed Room' }}</h1>
+        <div class="flex items-center space-x-3">
+          <h2 id="room-code" class="text-sm font-medium text-gray-500 dark:text-gray-400 cursor-pointer hover:opacity-90 transition duration-200 flex items-center gap-2" onclick="copyRoomCode()">
+            <span id="room-code-text">Room ID: {{ code }}</span>
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+            </svg>
+          </h2>
+          <span id="copy-feedback" class="text-sm bg-black/80 text-white px-2 py-1 rounded-md hidden">Copied!</span>
+        </div>
       </div>
       
       <div class="flex items-center space-x-4">
